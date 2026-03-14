@@ -27,6 +27,8 @@ export class AssetGenerator {
   private static loadSVG(svgString: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
       const img = new Image();
+      // Ensure crossOrigin is completely neutral for Data URIs just in case.
+      img.crossOrigin = 'anonymous';
       img.onload = () => resolve(img);
       img.onerror = reject;
       const encoded = encodeURIComponent(svgString);

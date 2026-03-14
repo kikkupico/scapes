@@ -1,41 +1,83 @@
+import * as THREE from 'three';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';
+
 import { Camera } from './Camera';
-import { Scene, type SceneObject } from './Scene';
+import { Scene as CustomScene } from './Scene';
 
 export class Engine {
   private canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D;
   private camera: Camera;
-  private scene: Scene;
+  private customScene: CustomScene;
+
+  private renderer: THREE.WebGLRenderer;
+  private scene: THREE.Scene;
+  private threeCamera: THREE.PerspectiveCamera;
+
+  private composer: EffectComposer;
+  private bokehPass: BokehPass;
+
   private isRunning: boolean = false;
   private animationFrameId: number | null = null;
 
-  // For color filtering (atmospheric perspective)
-  private tintCanvas: HTMLCanvasElement;
-  private tintCtx: CanvasRenderingContext2D;
+  private objectMeshes: Map<string, THREE.Sprite> = new Map();
+  private textureCache: Map<string, THREE.Texture> = new Map();
 
-  constructor(canvas: HTMLCanvasElement, camera: Camera, scene: Scene) {
+  constructor(canvas: HTMLCanvasElement, camera: Camera, scene: CustomScene) {
     this.canvas = canvas;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) throw new Error("Could not get 2D context");
-    this.ctx = ctx;
-
     this.camera = camera;
-    this.scene = scene;
+    this.customScene = scene;
 
-    this.tintCanvas = document.createElement('canvas');
-    const tintCtx = this.tintCanvas.getContext('2d', { willReadFrequently: true });
-    if (!tintCtx) throw new Error("Could not get offscreen 2D context");
-    this.tintCtx = tintCtx;
+    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: false });
+    this.renderer.setPixelRatio(window.devicePixelRatio);
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
 
-    this.resize();
+    this.scene = new THREE.Scene();
+    this.scene.fog = new THREE.Fog(this.customScene.horizonColor, 10, 500);
+
+    const bgCanvas = document.createElement('canvas');
+    bgCanvas.width = 2;
+    bgCanvas.height = 512;
+    const bgCtx = bgCanvas.getContext('2d');
+    if (bgCtx) {
+      const gradient = bgCtx.createLinearGradient(0, 0, 0, 512);
+      gradient.addColorStop(0, this.customScene.backgroundColor);
+      gradient.addColorStop(1, this.customScene.horizonColor);
+      bgCtx.fillStyle = gradient;
+      bgCtx.fillRect(0, 0, 2, 512);
+    }
+    const bgTexture = new THREE.CanvasTexture(bgCanvas);
+    bgTexture.colorSpace = THREE.SRGBColorSpace;
+    this.scene.background = bgTexture;
+
+    const fovDeg = THREE.MathUtils.radToDeg(this.camera.fov);
+    this.threeCamera = new THREE.PerspectiveCamera(
+      fovDeg,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+
+    this.composer = new EffectComposer(this.renderer);
+    const renderPass = new RenderPass(this.scene, this.threeCamera);
+    this.composer.addPass(renderPass);
+
+    this.bokehPass = new BokehPass(this.scene, this.threeCamera, {
+      focus: this.camera.focalDistance,
+      aperture: this.camera.aperture * 0.0001,
+      maxblur: 0.01
+    });
+    this.composer.addPass(this.bokehPass);
+
     window.addEventListener('resize', this.resize.bind(this));
   }
 
   private resize() {
-    this.canvas.width = window.innerWidth;
-    this.canvas.height = window.innerHeight;
-    this.tintCanvas.width = window.innerWidth;
-    this.tintCanvas.height = window.innerHeight;
+    this.threeCamera.aspect = window.innerWidth / window.innerHeight;
+    this.threeCamera.updateProjectionMatrix();
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.composer.setSize(window.innerWidth, window.innerHeight);
 
     if (!this.isRunning) {
       this.render();
@@ -60,88 +102,113 @@ export class Engine {
     this.animationFrameId = requestAnimationFrame(this.loop);
   }
 
-  private calculateBlur(distance: number): number {
-    const diff = Math.abs(distance - this.camera.focalDistance);
-    const blurAmount = (diff * 1.5) / this.camera.aperture;
-    return Math.min(Math.max(blurAmount, 0), 25);
+  private getTexture(image: HTMLImageElement): THREE.Texture {
+    if (this.textureCache.has(image.src)) {
+      return this.textureCache.get(image.src)!;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width || 512;
+    canvas.height = image.height || 512;
+
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.LinearMipMapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.needsUpdate = true;
+
+    this.textureCache.set(image.src, texture);
+    return texture;
   }
 
-  private drawObject(obj: SceneObject) {
-    const z = obj.distance;
+  private updateCamera() {
+    this.threeCamera.position.set(this.camera.x, 2, 0);
+    this.threeCamera.lookAt(this.camera.x, 2, -100);
+  }
 
-    if (z <= 0.1) return;
+  private updateObjects() {
+    const loadedObjects = this.customScene.objects;
+    const processedIds = new Set<string>();
 
-    const fovScale = this.canvas.height / (2 * Math.tan(this.camera.fov / 2));
-    const scaleFactor = fovScale / z;
+    for (const obj of loadedObjects) {
+      processedIds.add(obj.id);
 
-    const screenX = ((obj.x - this.camera.x) * scaleFactor) + (this.canvas.width / 2);
-    const screenY = (this.canvas.height / 2) + (obj.y * scaleFactor);
+      let sprite = this.objectMeshes.get(obj.id);
 
-    const drawWidth = obj.width * scaleFactor;
-    const drawHeight = obj.height * scaleFactor;
-
-    if (screenX + drawWidth / 2 < 0 || screenX - drawWidth / 2 > this.canvas.width) {
-      return;
-    }
-
-    const blur = this.calculateBlur(z);
-    const maxViewDist = 150;
-    let blendAmount = Math.max(0, Math.min((z - 5) / maxViewDist, 1.0));
-
-    this.ctx.save();
-
-    if (blur > 0.5) {
-      this.ctx.filter = `blur(${blur}px)`;
-    }
-
-    try {
-      if (blendAmount > 0.05) {
-        this.tintCanvas.width = Math.max(1, drawWidth);
-        this.tintCanvas.height = Math.max(1, drawHeight);
-        this.tintCtx.clearRect(0, 0, drawWidth, drawHeight);
-
-        this.tintCtx.globalCompositeOperation = 'source-over';
-        this.tintCtx.drawImage(obj.image, 0, 0, drawWidth, drawHeight);
-
-        this.tintCtx.globalCompositeOperation = 'source-atop';
-        this.tintCtx.fillStyle = this.scene.horizonColor;
-        this.tintCtx.globalAlpha = blendAmount;
-        this.tintCtx.fillRect(0, 0, drawWidth, drawHeight);
-
-        this.ctx.drawImage(this.tintCanvas, screenX - drawWidth / 2, screenY - drawHeight, drawWidth, drawHeight);
-      } else {
-        this.ctx.drawImage(obj.image, screenX - drawWidth / 2, screenY - drawHeight, drawWidth, drawHeight);
+      if (!sprite) {
+        const texture = this.getTexture(obj.image);
+        const material = new THREE.SpriteMaterial({
+          map: texture,
+          color: 0xffffff,
+          fog: true,
+          transparent: true,
+          depthTest: true,
+          depthWrite: false
+        });
+        sprite = new THREE.Sprite(material);
+        this.scene.add(sprite);
+        this.objectMeshes.set(obj.id, sprite);
       }
-    } catch (e) {
-      // Ignore draw errors
+
+      sprite.renderOrder = -obj.distance;
+
+      // Position mapping
+      sprite.position.x = obj.x;
+      sprite.position.z = -obj.distance;
+      sprite.position.y = obj.y + (obj.height / 2);
+
+      // Scale mapping
+      sprite.scale.set(obj.width, obj.height, 1);
     }
 
-    this.ctx.restore();
+    // Remove old sprites
+    for (const [id, sprite] of this.objectMeshes.entries()) {
+      if (!processedIds.has(id)) {
+        this.scene.remove(sprite);
+        this.objectMeshes.delete(id);
+      }
+    }
+  }
+
+  private updatePostProcessing() {
+    (this.bokehPass.uniforms as any)['focus'].value = this.camera.focalDistance;
+    (this.bokehPass.uniforms as any)['aperture'].value = this.camera.aperture * 0.0001;
+  }
+
+  private updateUI() {
+    const statsOverlay = document.getElementById('stats-overlay');
+    if (!statsOverlay) {
+      const div = document.createElement('div');
+      div.id = 'stats-overlay';
+      div.style.position = 'absolute';
+      div.style.top = '10px';
+      div.style.left = '10px';
+      div.style.color = 'black';
+      div.style.fontFamily = 'sans-serif';
+      div.style.pointerEvents = 'none';
+      document.body.appendChild(div);
+    }
+
+    const el = document.getElementById('stats-overlay')!;
+    el.innerHTML = `
+      <div>Camera X: ${this.camera.x.toFixed(1)}</div>
+      <div>Aperture: f/${this.camera.aperture.toFixed(1)}</div>
+      <div>Focal Dist: ${this.camera.focalDistance.toFixed(1)}m</div>
+    `;
   }
 
   public render() {
-    const grad = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
-    grad.addColorStop(0, this.scene.backgroundColor);
-    grad.addColorStop(1, this.scene.horizonColor);
-    this.ctx.fillStyle = grad;
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.updateCamera();
+    this.updateObjects();
+    this.updatePostProcessing();
+    this.updateUI();
 
-    const loadedObjects = this.scene.objects.filter(obj => obj.image && obj.image.complete && obj.image.naturalWidth > 0);
-
-    for (const obj of loadedObjects) {
-      this.drawObject(obj);
-    }
-
-    this.drawUI();
-  }
-
-  private drawUI() {
-    this.ctx.save();
-    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-    this.ctx.font = '16px sans-serif';
-    this.ctx.fillText(`Camera X: ${this.camera.x.toFixed(1)}`, 10, 20);
-    this.ctx.fillText(`Aperture: f/${this.camera.aperture.toFixed(1)}`, 10, 40);
-    this.ctx.fillText(`Focal Dist: ${this.camera.focalDistance.toFixed(1)}m`, 10, 60);
-    this.ctx.restore();
+    this.composer.render();
   }
 }

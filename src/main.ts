@@ -33,79 +33,78 @@ async function init() {
   const mountain2 = await AssetGenerator.createMountainSVG('#3C4119', '#EEEEEE');
   const cloud1 = await AssetGenerator.createCloudSVG('#FFFFFF', 0.8);
 
-  // Mountains (very far) - Make them huge (e.g. 800m wide)
+  // Mountains (very far) - Make them huge (e.g. 100m wide)
   for (let i = -10; i < 10; i++) {
     scene.addObject({
-      id: `mountain_\${i}`,
-      x: i * 800,
-      y: -200,
-      width: 800,
-      height: 500,
-      distance: 100 + Math.random() * 20, // 100-120m
+      id: `mountain_${i}`,
+      x: i * 80,
+      y: 0,
+      width: 100,
+      height: 60,
+      distance: 400 + Math.random() * 50,
       image: Math.random() > 0.5 ? mountain1 : mountain2
     });
   }
 
-  // Clouds (far) - 300m wide
+  // Clouds (far) - 60m wide
   for (let i = -20; i < 20; i++) {
     scene.addObject({
-      id: `cloud_\${i}`,
-      x: i * 300 + Math.random() * 100,
-      y: -500 - Math.random() * 200,
-      width: 300,
-      height: 150,
-      distance: 80 + Math.random() * 40,
+      id: `cloud_${i}`,
+      x: i * 40 + Math.random() * 20,
+      y: 50 + Math.random() * 20,
+      width: 60,
+      height: 30,
+      distance: 250 + Math.random() * 100,
       image: cloud1
     });
   }
 
   // Midground Trees (15m tall)
   for (let i = -30; i < 30; i++) {
-    const dist = 15 + Math.random() * 30; // 15m - 45m
+    const dist = 15 + Math.random() * 30;
     scene.addObject({
-      id: `mid_tree_\${i}`,
-      x: i * 15 + (Math.random() * 5),
-      y: -5, // ground level roughly
-      width: 10,
-      height: 15,
+      id: `mid_tree_${i}`,
+      x: i * 4 + Math.random() * 2,
+      y: 0,
+      width: 2,
+      height: 3,
       distance: dist,
       image: Math.random() > 0.5 ? tree1 : tree3
     });
   }
 
-  // Focal point trees (10m) - perfectly in focus. 20m tall
+  // Focal point trees (10m) - perfectly in focus.
   for (let i = -15; i < 15; i++) {
     scene.addObject({
-      id: `focus_tree_\${i}`,
-      x: i * 15,
-      y: -8,
-      width: 12,
-      height: 20,
-      distance: 10,
+      id: `focus_tree_${i}`,
+      x: i * 2.5,
+      y: 0,
+      width: 2.5,
+      height: 4,
+      distance: 20,
       image: tree2
     });
 
-    // Some bushes (2m tall)
     scene.addObject({
-      id: `focus_bush_\${i}`,
-      x: i * 15 + 6,
-      y: 4,
-      width: 4,
-      height: 2.5,
-      distance: 10.5,
+      id: `focus_bush_${i}`,
+      x: i * 2.5 + 1.2,
+      y: 0,
+      width: 1,
+      height: 0.6,
+      distance: 21,
       image: bush1
     });
   }
 
-  // Foreground (close) - blurry. 25m tall
+  // Foreground (close) - blurry.
   for (let i = -10; i < 10; i++) {
-    const dist = 2 + Math.random() * 3; // 2m - 5m
+    const dist = 2 + Math.random() * 3;
     scene.addObject({
-      id: `fg_tree_\${i}`,
-      x: i * 30 + Math.random() * 10,
-      y: 5,
-      width: 15,
-      height: 25,
+      id: `fg_tree_${i}`,
+      x: i * 3 + Math.random() * 2,
+      y: 0,
+      width: 3,
+      height: 5,
       distance: dist,
       image: tree1
     });
