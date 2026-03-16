@@ -1,0 +1,166 @@
+/* ============================================================
+   Scape.css – 2D Sidescroller Engine Demo Styles
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: #0a0a0f;
+  color: #ccc;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+}
+
+/* ── Layout ─────────────────────────────────────────────────── */
+
+#app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px 16px 32px;
+  gap: 16px;
+}
+
+h1 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8ab;
+}
+
+/* ── Canvas wrapper ─────────────────────────────────────────── */
+
+#canvas-wrap {
+  width: min(100vw - 32px, 960px);
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 0 40px rgba(0,0,0,0.8);
+}
+
+#canvas-wrap canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ── Control panel ──────────────────────────────────────────── */
+
+#controls {
+  width: min(100vw - 32px, 960px);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.panel {
+  background: #12141a;
+  border: 1px solid #2a2e3a;
+  border-radius: 6px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.panel h3 {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #667;
+  margin-bottom: 2px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.row label {
+  min-width: 90px;
+  color: #899;
+  font-size: 0.82rem;
+}
+
+input[type=range] {
+  flex: 1;
+  accent-color: #5a8fc0;
+  height: 4px;
+  cursor: pointer;
+}
+
+.val {
+  min-width: 36px;
+  text-align: right;
+  color: #aac;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+}
+
+/* ── Buttons ────────────────────────────────────────────────── */
+
+.btn-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+button {
+  background: #1e2230;
+  border: 1px solid #34394a;
+  border-radius: 4px;
+  color: #aab;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+button:hover { background: #252a3a; border-color: #5a7a9a; }
+button.active { background: #1e3050; border-color: #5a8fc0; color: #9bf; }
+
+/* Preset buttons */
+button[data-preset] { text-transform: capitalize; }
+
+/* ── Toggle switch ──────────────────────────────────────────── */
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.toggle input { display: none; }
+
+.toggle .knob {
+  width: 36px;
+  height: 18px;
+  background: #2a2e3a;
+  border-radius: 9px;
+  border: 1px solid #3a3e4a;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.toggle .knob::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 12px;
+  height: 12px;
+  background: #667;
+  border-radius: 50%;
+  transition: left 0.15s, background 0.15s;
+}
+
+.toggle input:checked + .knob { background: #1e3050; border-color: #5a8fc0; }
+.toggle input:checked + .knob::after { left: 20px; background: #5a8fc0; }
+
+.toggle span { color: #899; font-size: 0.82rem; }

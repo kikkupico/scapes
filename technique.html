@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Layering Techniques – Landscape Painting & Dioramas</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      background: #0d0f14;
+      color: #c8cdd8;
+      font-family: 'Georgia', serif;
+      font-size: 16px;
+      line-height: 1.75;
+    }
+
+    /* ── Layout ── */
+    .page {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 60px 32px 100px;
+    }
+
+    /* ── Header ── */
+    header {
+      border-bottom: 1px solid #2a2e3a;
+      padding-bottom: 40px;
+      margin-bottom: 60px;
+    }
+
+    header h1 {
+      font-size: 1.9rem;
+      font-weight: 400;
+      letter-spacing: 0.06em;
+      color: #e8eaf0;
+      margin-bottom: 10px;
+    }
+
+    header p {
+      color: #566;
+      font-style: italic;
+      font-size: 0.92rem;
+    }
+
+    /* ── Sections ── */
+    section {
+      margin-bottom: 64px;
+    }
+
+    h2 {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #5a7a9a;
+      margin-bottom: 28px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #1e2230;
+    }
+
+    h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #d0d8e8;
+      margin: 36px 0 10px;
+      letter-spacing: 0.02em;
+    }
+
+    h3:first-of-type { margin-top: 0; }
+
+    p {
+      margin-bottom: 14px;
+      color: #a8b0c0;
+    }
+
+    /* ── Depth plane diagram ── */
+    .plane-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      margin: 24px 0;
+    }
+
+    .plane {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 16px;
+      border-radius: 3px;
+      border-left: 3px solid transparent;
+    }
+
+    .plane-label {
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      min-width: 160px;
+      color: #889;
+    }
+
+    .plane-content {
+      font-size: 0.88rem;
+      color: #a0a8b8;
+    }
+
+    .plane-near   { background: #141820; border-color: #4a6a8a; }
+    .plane-mid1   { background: #111620; border-color: #3a5870; }
+    .plane-mid2   { background: #0e1318; border-color: #2a4858; }
+    .plane-far1   { background: #0c1116; border-color: #1a3848; }
+    .plane-far2   { background: #0a0f14; border-color: #102838; }
+    .plane-haze   { background: #090e12; border-color: #0a1e2a; }
+    .plane-sky    { background: #080c10; border-color: #081828; }
+
+    /* ── Technique cards ── */
+    .technique-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 16px;
+      margin: 8px 0;
+    }
+
+    .card {
+      background: #10131a;
+      border: 1px solid #1e2230;
+      border-radius: 4px;
+      padding: 20px 22px;
+    }
+
+    .card h4 {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #9ab;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .card .origin {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #445;
+      margin-bottom: 10px;
+    }
+
+    .card p {
+      font-size: 0.86rem;
+      color: #8090a0;
+      margin-bottom: 0;
+      line-height: 1.6;
+    }
+
+    /* ── Traditions comparison ── */
+    .tradition-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin: 8px 0;
+    }
+
+    @media (max-width: 700px) {
+      .tradition-grid { grid-template-columns: 1fr; }
+      .technique-grid { grid-template-columns: 1fr; }
+    }
+
+    .tradition {
+      background: #10131a;
+      border: 1px solid #1e2230;
+      border-radius: 4px;
+      padding: 20px 22px;
+    }
+
+    .tradition h4 {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #9ab;
+      margin-bottom: 6px;
+    }
+
+    .tradition .era {
+      font-size: 0.72rem;
+      color: #445;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .tradition ul {
+      padding-left: 16px;
+      font-size: 0.84rem;
+      color: #7888a0;
+      line-height: 1.65;
+    }
+
+    /* ── Three distances diagram ── */
+    .san-yuan {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    @media (max-width: 600px) { .san-yuan { grid-template-columns: 1fr; } }
+
+    .yuan {
+      background: #10131a;
+      border: 1px solid #1e2230;
+      border-radius: 4px;
+      padding: 18px 16px;
+      text-align: center;
+    }
+
+    .yuan .chinese {
+      font-size: 2rem;
+      color: #5a7a9a;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .yuan h4 {
+      font-size: 0.82rem;
+      color: #c0c8d8;
+      margin-bottom: 6px;
+      letter-spacing: 0.04em;
+    }
+
+    .yuan p {
+      font-size: 0.8rem;
+      color: #6878a0;
+      margin-bottom: 0;
+    }
+
+    /* ── Value table (Carlson) ── */
+    .value-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin: 20px 0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .value-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 16px;
+    }
+
+    .swatch {
+      width: 32px;
+      height: 32px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .value-row span { font-size: 0.86rem; color: #8898b0; }
+    .value-row strong { color: #b0b8c8; }
+
+    /* ── Spacing principle ── */
+    .fib-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      margin: 24px 0;
+      height: 80px;
+    }
+
+    .fib-bar {
+      flex: 1;
+      background: #1a2a3a;
+      border-radius: 2px 2px 0 0;
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .fib-bar span {
+      font-size: 0.7rem;
+      color: #446;
+      padding-bottom: 6px;
+      letter-spacing: 0.05em;
+    }
+
+    /* ── Engine relevance boxes ── */
+    .engine-note {
+      background: #0c1420;
+      border: 1px solid #1a3048;
+      border-left: 3px solid #3a6088;
+      border-radius: 0 4px 4px 0;
+      padding: 14px 18px;
+      margin: 20px 0 0;
+      font-size: 0.84rem;
+      color: #6888a8;
+      line-height: 1.6;
+    }
+
+    .engine-note strong { color: #8aaac8; }
+
+    /* ── Summary table ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+      margin: 16px 0;
+    }
+
+    thead tr { border-bottom: 1px solid #2a3040; }
+
+    th {
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #445566;
+      font-weight: 600;
+    }
+
+    td {
+      padding: 9px 12px;
+      color: #8090a8;
+      border-bottom: 1px solid #14181e;
+      vertical-align: top;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #0e1218; }
+
+    td:first-child { color: #a0b0c0; }
+
+    /* ── Actionable section ── */
+    .action-list {
+      list-style: none;
+      padding: 0;
+      margin: 8px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .action-list li {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      background: #10131a;
+      border: 1px solid #1e2230;
+      border-radius: 4px;
+      padding: 14px 16px;
+      font-size: 0.86rem;
+      color: #8090a8;
+      line-height: 1.55;
+    }
+
+    .action-list li .num {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #3a6088;
+      letter-spacing: 0.06em;
+      padding-top: 2px;
+      min-width: 20px;
+    }
+
+    .action-list li strong { color: #a8b8c8; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <h1>Layering Techniques in Landscape Painting &amp; Dioramas</h1>
+    <p>Research compiled for the Scapes 2.5D engine — depth composition principles from painting, diorama, and garden traditions</p>
+  </header>
+
+
+  <!-- ── 1. Depth Planes ─────────────────────────────────────── -->
+  <section>
+    <h2>1. The Canonical Depth Planes</h2>
+
+    <p>The universal answer is <strong>three primary planes</strong> — foreground, middle ground, background — but practitioners routinely subdivide to five to seven functional layers. The reason is perceptual: depth follows <strong>Fechner's logarithmic law</strong>, meaning you are most sensitive to depth differences close up and least sensitive far away. Foreground planes carry disproportionate perceptual weight; background planes compress dramatically.</p>
+
+    <div class="plane-stack">
+      <div class="plane plane-near">
+        <span class="plane-label">Immediate foreground</span>
+        <span class="plane-content">Ground cover, rocks, grass — full detail, warm &amp; saturated, high contrast</span>
+      </div>
+      <div class="plane plane-mid1">
+        <span class="plane-label">Near foreground</span>
+        <span class="plane-content">Large framing trees, repoussoir elements — dark, pushes eye inward</span>
+      </div>
+      <div class="plane plane-mid2">
+        <span class="plane-label">Middle ground near</span>
+        <span class="plane-content">Main subject, tallest trees — highest detail, focal point lives here</span>
+      </div>
+      <div class="plane plane-far1">
+        <span class="plane-label">Middle ground far</span>
+        <span class="plane-content">Transitional trees, buildings — detail softens, colour cools</span>
+      </div>
+      <div class="plane plane-far2">
+        <span class="plane-label">Far distance</span>
+        <span class="plane-content">Distant tree lines, hills — flat silhouettes, low contrast</span>
+      </div>
+      <div class="plane plane-haze">
+        <span class="plane-label">Atmospheric haze</span>
+        <span class="plane-content">Near-horizon band — near-uniform value, dissolved edges</span>
+      </div>
+      <div class="plane plane-sky">
+        <span class="plane-label">Sky</span>
+        <span class="plane-content">Always the lightest value — warm at horizon, cool at zenith</span>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ── 2. Named Techniques ────────────────────────────────── -->
+  <section>
+    <h2>2. Named Techniques</h2>
+
+    <div class="technique-grid">
+
+      <div class="card">
+        <h4>Repoussoir</h4>
+        <div class="origin">Baroque Europe</div>
+        <p>A large dark element placed along the foreground edge — typically a tree — that frames the scene and pushes the eye inward toward the distance. Works by establishing an immediate near plane and using its darkness to make the luminous background feel vastly farther away by contrast. Claude Lorrain used shadow masses across the full composition bottom; Ruisdael used a single edge tree.</p>
+        <div class="engine-note"><strong>Engine:</strong> A dense tall-layer tree on one side of the visible area would serve this role naturally.</div>
+      </div>
+
+      <div class="card">
+        <h4>Coulisse</h4>
+        <div class="origin">Claude Lorrain &amp; Poussin, 17th-century Rome</div>
+        <p>Borrowed directly from theatrical terminology — the wing flats at the side of a stage. Large dark framing shapes on both sides of the composition channel the eye toward a bright central opening and luminous far distance. The Claudian formula: dark left wing → shadow threshold → bright central recession → luminous background. This formula dominated European landscape for 300 years and persists in cinema and game design.</p>
+        <div class="engine-note"><strong>Engine:</strong> Left/right tall-tree placement at zone edges creates this naturally.</div>
+      </div>
+
+      <div class="card">
+        <h4>Atmospheric Perspective</h4>
+        <div class="origin">Leonardo da Vinci</div>
+        <p>As light travels through air, shorter blue wavelengths scatter more than longer red/orange wavelengths. With increasing distance: values lighten, hues shift cool toward blue-grey, saturation drops, contrast decreases, edges soften, and detail disappears. The gradient rule: foreground = warm, saturated, contrasted, detailed; background = cool, desaturated, low-contrast, dissolved.</p>
+        <div class="engine-note"><strong>Engine:</strong> Per-layer lighting filter approximates this. Could be extended to also reduce saturation and shift hue cooler with each deeper layer.</div>
+      </div>
+
+      <div class="card">
+        <h4>Carlson's Angle Theory</h4>
+        <div class="origin">John Carlson, 1929</div>
+        <p>Organises landscape into four value zones based on how surfaces angle toward the light source, not purely by distance. Sky is lightest (direct overhead source), the horizontal ground plane is second (receives full overhead sun), sloped planes are third, and vertical planes (tree trunks, walls) are darkest. Prevents the common error of making trees lighter than the ground they stand on.</p>
+        <div class="engine-note"><strong>Engine:</strong> Tree trunks should always be darker than the ground gradient. Currently enforced by preset colour values.</div>
+      </div>
+
+      <div class="card">
+        <h4>Forced Perspective</h4>
+        <div class="origin">Model railroading / museum dioramas</div>
+        <p>Background trees built at 60–80% of foreground tree height. Museum diorama builders mix N-scale (1:160) structures behind HO-scale (1:87) foreground elements — an ~1.8× ratio that simulates roughly 80 extra feet of distance. Roads, rivers and fence lines are physically tapered wider at the front and narrower toward the back, reinforcing convergence to an implied vanishing point beyond the physical space.</p>
+        <div class="engine-note"><strong>Engine:</strong> Handled automatically by perspective projection — trees at greater z appear smaller with no extra work.</div>
+      </div>
+
+      <div class="card">
+        <h4>Miegakure (Hide &amp; Reveal)</h4>
+        <div class="origin">Japanese garden design</div>
+        <p>Sequential partial concealment — paths curve and views are screened so the full extent of a garden is never visible at once. This sustained partial disclosure constantly implies greater depth than is physically present, making a space feel inexhaustible. The principle: never show everything; always leave something to be discovered around the next turn.</p>
+        <div class="engine-note"><strong>Engine:</strong> Near-layer trees blocking parts of mid-layer trees creates this naturally as the camera scrolls.</div>
+      </div>
+
+      <div class="card">
+        <h4>Shakkei (Borrowed Scenery)</h4>
+        <div class="origin">Japanese garden design</div>
+        <p>A garden is designed so that a distant mountain, tree line, or other external feature appears to be part of the garden itself. Two depth illusions are created: the distant element appears larger than it would in isolation, and the garden appears deeper than it actually is. Famous examples include Shōden-ji Temple (framing Mount Hiei) and the Adachi Museum of Art.</p>
+        <div class="engine-note"><strong>Engine:</strong> The backdrop ridges serve exactly this role — borrowed mountain scenery that anchors the sky-to-ground transition.</div>
+      </div>
+
+      <div class="card">
+        <h4>Overlapping / Interposition</h4>
+        <div class="origin">Universal — cave paintings onward</div>
+        <p>The oldest depth cue. Objects that overlap others are perceived as closer. Even at the same scale and with no atmospheric treatment, systematic overlapping from foreground through middle to background creates convincing layered recession. It is the primary depth signal when all others are absent.</p>
+        <div class="engine-note"><strong>Engine:</strong> The back-to-front painter's algorithm sort in Stage.render() ensures correct overlap at all times.</div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ── 3. Carlson Value Zones ─────────────────────────────── -->
+  <section>
+    <h2>3. Carlson's Four Value Zones</h2>
+
+    <p>Organised by the angle each surface makes with the overhead light source. Provides a rational value hierarchy for the entire canvas independent of detail or colour.</p>
+
+    <div class="value-stack">
+      <div class="value-row" style="background:#1a1f2a">
+        <div class="swatch" style="background:#d8e0f0"></div>
+        <span><strong>Sky</strong> — lightest value; direct overhead source; warm at horizon, cool at zenith</span>
+      </div>
+      <div class="value-row" style="background:#161b24">
+        <div class="swatch" style="background:#a0a888"></div>
+        <span><strong>Ground plane</strong> — second lightest; horizontal surface receives full overhead light</span>
+      </div>
+      <div class="value-row" style="background:#12161e">
+        <div class="swatch" style="background:#687060"></div>
+        <span><strong>Sloped planes</strong> — hills, rooftops; angled away from zenith, receive less light</span>
+      </div>
+      <div class="value-row" style="background:#0e1218">
+        <div class="swatch" style="background:#303830"></div>
+        <span><strong>Vertical planes</strong> — tree trunks, walls; face sideways; darkest in the scene</span>
+      </div>
+    </div>
+
+    <p>The practical implication: a tree trunk must always be darker than the ground it stands on, regardless of the tree's foliage colour. Violating this reads as wrong even to viewers who cannot articulate why.</p>
+  </section>
+
+
+  <!-- ── 4. Three Traditions ────────────────────────────────── -->
+  <section>
+    <h2>4. Three Landscape Traditions</h2>
+
+    <div class="tradition-grid">
+
+      <div class="tradition">
+        <h4>Western</h4>
+        <div class="era">Renaissance onward</div>
+        <ul>
+          <li>Single fixed viewpoint</li>
+          <li>One horizon line</li>
+          <li>Linear convergence to vanishing points</li>
+          <li>Claudian three-plane formula dominates 1650–1950</li>
+          <li>Atmospheric perspective for natural elements</li>
+          <li>Repoussoir + coulisse for compositional framing</li>
+          <li>Carlson's value hierarchy</li>
+        </ul>
+      </div>
+
+      <div class="tradition">
+        <h4>Chinese Shan Shui</h4>
+        <div class="era">Song Dynasty, 960–1279</div>
+        <ul>
+          <li>No fixed viewpoint — multiple simultaneous views</li>
+          <li>No horizon line or linear convergence</li>
+          <li>Three Distances (San Yuan) — see below</li>
+          <li>Progressively lighter ink wash = recession</li>
+          <li>Negative space is active — mist, clouds, distance</li>
+          <li>Viewer moves through the scene mentally</li>
+          <li>Space is experienced, not observed</li>
+        </ul>
+      </div>
+
+      <div class="tradition">
+        <h4>Japanese</h4>
+        <div class="era">Yamato-e, Kano School, Edo Period</div>
+        <ul>
+          <li>Bird's-eye view convention (blown-off roof)</li>
+          <li>Kasumi (floating clouds) as spatial dividers</li>
+          <li>Gold leaf as ambiguous infinite ground</li>
+          <li>Shakkei — borrowed external scenery</li>
+          <li>Miegakure — hide and reveal</li>
+          <li>Ma — charged negative space</li>
+          <li>Asymmetry and diagonal movement</li>
+        </ul>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ── 5. San Yuan ────────────────────────────────────────── -->
+  <section>
+    <h2>5. Guo Xi's Three Distances (San Yuan)</h2>
+
+    <p>Codified by Song dynasty painter and theorist Guo Xi (c. 1020–1090) in his treatise <em>Lofty Messages of Streams and Mountains</em>. Three viewing modes that can coexist simultaneously in one composition. His painting <em>Early Spring</em> (1072) deploys all three, creating the sensation of moving through an encompassing landscape rather than viewing it from one fixed position.</p>
+
+    <div class="san-yuan">
+
+      <div class="yuan">
+        <span class="chinese">高遠</span>
+        <h4>Gaoyuan — High Distance</h4>
+        <p>Looking upward from below a mountain. Creates vertical monumentality and awe. Peaks dissolve into clouds.</p>
+      </div>
+
+      <div class="yuan">
+        <span class="chinese">深遠</span>
+        <h4>Shenyuan — Deep Distance</h4>
+        <p>Looking horizontally inward through sequential overlapping ridges. Rhythmic stacking pulls the eye through multiple planes receding into depth.</p>
+      </div>
+
+      <div class="yuan">
+        <span class="chinese">平遠</span>
+        <h4>Pingyuan — Level Distance</h4>
+        <p>Looking across from one height to distant peaks at the same elevation. Panoramic breadth and serene horizontal extension.</p>
+      </div>
+
+    </div>
+
+    <div class="engine-note"><strong>Engine:</strong> The backdrop ridges implement Shenyuan — sequential overlapping ridges. Gaoyuan and Pingyuan would require camera pitch work (viewAngle control already supports this).</div>
+  </section>
+
+
+  <!-- ── 6. Museum Diorama Method ───────────────────────────── -->
+  <section>
+    <h2>6. The Museum Diorama Method</h2>
+
+    <p>Pioneered by Carl Akeley at the American Museum of Natural History from the late 19th century. The painter James Perry Wilson (called "the Raphael of the animal diorama") developed the definitive technique for the seamless 3D-to-2D transition.</p>
+
+    <h3>Construction layers</h3>
+
+    <div class="plane-stack">
+      <div class="plane plane-near">
+        <span class="plane-label">Physical foreground</span>
+        <span class="plane-content">Fully 3D — wood armatures, plaster, real plant material, taxidermy. Maximum tactile realism, no illusion needed.</span>
+      </div>
+      <div class="plane plane-mid1">
+        <span class="plane-label">Transition zone</span>
+        <span class="plane-content">Most technically challenging. Physical material terminates here. Vegetation and rocks physically occlude the seam where floor meets curved wall. Shadows controlled so they never fall on the painted surface.</span>
+      </div>
+      <div class="plane plane-sky">
+        <span class="plane-label">Curved cyclorama</span>
+        <span class="plane-content">2D painted panoramic wall. Geometric grid correction compensates for curved surface distortion. Value planned in charcoal studies before paint. Sky transitions warm-at-horizon to cool-at-zenith.</span>
+      </div>
+    </div>
+
+    <h3>Wilson's working process</h3>
+    <p>Full charcoal value studies planned the complete foreground-to-horizon value transition before any paint was applied. Blue reflected light was added to foliage surfaces to reinforce the sense of open sky above. Viewing distance was controlled by glass and case depth to prevent angles of view that would expose the seam.</p>
+
+    <div class="engine-note"><strong>Engine:</strong> Our three-layer architecture (Sky, Backdrop, Stage) directly mirrors the diorama's cyclorama / painted ridges / physical foreground structure.</div>
+  </section>
+
+
+  <!-- ── 7. Layer Spacing Principle ────────────────────────── -->
+  <section>
+    <h2>7. The Logarithmic Spacing Principle</h2>
+
+    <p>Depth perception obeys <strong>Fechner's psychophysical law</strong>: perceptual magnitude scales logarithmically with physical stimulus magnitude. Applied to depth: a 1-unit change at distance 2 feels enormous; a 100-unit change at distance 500 may feel negligible.</p>
+
+    <p>The implication for layer placement: layers should be spaced on a <strong>logarithmic or power-law scale</strong>, not linearly. Each successive layer should be roughly 1.6× farther than the previous — which is the growth ratio of the Fibonacci sequence. This matches the compression of perceptual depth and ensures each layer feels equally significant to the viewer.</p>
+
+    <div class="fib-row">
+      <div class="fib-bar" style="height:22%"><span>300</span></div>
+      <div class="fib-bar" style="height:36%"><span>500</span></div>
+      <div class="fib-bar" style="height:58%"><span>800</span></div>
+      <div class="fib-bar" style="height:94%"><span>1300</span></div>
+    </div>
+
+    <p style="font-size:0.82rem; color:#556; margin-top:-8px">Current engine layer depths — approximately Fibonacci × 100, giving ~1.6× ratio between each successive layer.</p>
+
+    <div class="engine-note"><strong>Engine:</strong> Current layers <code>[300, 500, 800, 1300]</code> closely approximate Fibonacci × 100 (true values would be 300, 500, 800, 1300, 2100). The spacing is perceptually motivated.</div>
+  </section>
+
+
+  <!-- ── 8. Summary Table ───────────────────────────────────── -->
+  <section>
+    <h2>8. Summary Reference</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Technique</th>
+          <th>Origin</th>
+          <th>Core mechanism</th>
+          <th>Layers</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Three-plane structure</td>
+          <td>Universal</td>
+          <td>Foreground / middle / background distance zones</td>
+          <td>3 (→ 5–7)</td>
+        </tr>
+        <tr>
+          <td>Repoussoir</td>
+          <td>Baroque Europe</td>
+          <td>Dark foreground framing element pushes eye inward</td>
+          <td>Layer 1</td>
+        </tr>
+        <tr>
+          <td>Coulisse</td>
+          <td>Claudian Rome, 17th c.</td>
+          <td>Stage-wing dark framing channels eye to bright centre</td>
+          <td>Layers 1–2</td>
+        </tr>
+        <tr>
+          <td>Atmospheric perspective</td>
+          <td>Leonardo da Vinci</td>
+          <td>Value/hue/saturation/detail degrade with distance</td>
+          <td>Continuous gradient</td>
+        </tr>
+        <tr>
+          <td>Carlson's Angle Theory</td>
+          <td>Western modernist, 1929</td>
+          <td>Light-receiving plane angle determines value zone</td>
+          <td>4 value planes</td>
+        </tr>
+        <tr>
+          <td>Three Distances (San Yuan)</td>
+          <td>Song Dynasty China, 1072</td>
+          <td>Multiple simultaneous viewpoints (high / deep / level)</td>
+          <td>3 viewing modes</td>
+        </tr>
+        <tr>
+          <td>Shakkei</td>
+          <td>Japanese garden design</td>
+          <td>Borrowed external scenery frames and extends depth</td>
+          <td>2 (garden + borrowed)</td>
+        </tr>
+        <tr>
+          <td>Miegakure</td>
+          <td>Japanese garden design</td>
+          <td>Sequential concealment implies inexhaustible depth</td>
+          <td>Unlimited implied</td>
+        </tr>
+        <tr>
+          <td>Museum cyclorama</td>
+          <td>AMNH / Akeley, late 19th c.</td>
+          <td>3D foreground transitions seamlessly to 2D painted background</td>
+          <td>2 (3D + 2D)</td>
+        </tr>
+        <tr>
+          <td>Forced perspective</td>
+          <td>Model railroading</td>
+          <td>Scale reduction + tapering geometry simulates distance</td>
+          <td>2–3 with scale mixing</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+
+  <!-- ── 9. Engine Opportunities ───────────────────────────── -->
+  <section>
+    <h2>9. Actionable Engine Opportunities</h2>
+
+    <ul class="action-list">
+      <li>
+        <span class="num">01</span>
+        <div><strong>Per-layer atmospheric progression</strong> — the lighting filter currently varies brightness. Extend it to also cool the hue and drop saturation with each deeper layer, matching Leonardo's atmospheric perspective gradient more precisely.</div>
+      </li>
+      <li>
+        <span class="num">02</span>
+        <div><strong>Repoussoir slot</strong> — a dedicated near-edge tall object that always spawns on one side of the visible area. Could be a fixed hand-placed object in the Stage rather than a procedural one.</div>
+      </li>
+      <li>
+        <span class="num">03</span>
+        <div><strong>Colour temperature of ground</strong> — by Carlson's logic, the far ground plane receives more overhead sky light and should appear slightly lighter than the near ground. The current nearColor/farColor gradient already handles this directionally.</div>
+      </li>
+      <li>
+        <span class="num">04</span>
+        <div><strong>Coulisse tree placement</strong> — bias the near-layer tree grid so that trees appear more frequently at the left and right edges of the screen, creating natural stage-wing framing as the camera scrolls.</div>
+      </li>
+      <li>
+        <span class="num">05</span>
+        <div><strong>Edge softening by layer</strong> — apply a very slight blur (0.5–1px) to the deepest layers independent of DoF, simulating the loss of edge quality that atmospheric perspective produces at distance.</div>
+      </li>
+      <li>
+        <span class="num">06</span>
+        <div><strong>Backdrop as Shenyuan</strong> — the three parallax ridges already implement deep distance (Shenyuan). Could be extended to allow the view angle control to shift between Gaoyuan (look up at peaks) and Pingyuan (level panoramic) modes.</div>
+      </li>
+    </ul>
+  </section>
+
+</div>
+</body>
+</html>
