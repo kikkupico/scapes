@@ -1,0 +1,551 @@
+#+TITLE: Scapes — Rethink as Library + Agent-Driven Asset Pipeline
+#+DATE: 2026-03-16
+
+* Motivation
+
+  Scapes is currently a standalone vanilla-JS app (index.html + two modules).
+  The engine itself is clean and self-contained, but it's coupled to:
+  - A specific HTML host page with hardcoded UI controls
+  - Hardcoded preset definitions (noon, lantern, city)
+  - Sprite paths baked into ScapeLayers.js (_imgCache atlas)
+  - No npm package, no exports consumable by bundlers
+
+  The goal is threefold:
+  1. Repackage as a library usable from React, Phaser, PixiJS, Three.js, etc.
+  2. Define a portable "scape definition" format (JSON) for scenes + assets.
+  3. Build a Claude Code skill (=/scapes=) that uses Gemini image generation
+     to produce sprite sheets, cuts them up, removes backgrounds, and emits
+     a complete scape definition the engine can load.
+
+* Part 1 — Library Extraction
+
+** 1.1 Package structure
+
+   #+begin_example
+   scapes/
+   ├── package.json            # name: "scapes", type: "module", main/module/types
+   ├── tsconfig.json           # optional — could stay JS with JSDoc types
+   ├── src/
+   │   ├── index.ts            # public API barrel export
+   │   ├── ScapeEngine.ts      # core engine (from ScapeEngine.js)
+   │   ├── layers/
+   │   │   ├── Sky.ts
+   │   │   ├── Backdrop.ts
+   │   │   └── Stage.ts
+   │   ├── projection.ts       # project(), horizonY() extracted as pure fns
+   │   ├── procedural.ts       # fbm(), zoneRng(), drawConifer(), etc.
+   │   ├── types.ts            # ScapeDefinition, SpriteSpec, RidgeSpec, etc.
+   │   └── loader.ts           # loadScape(def: ScapeDefinition) → configured engine
+   ├── presets/                 # shipped preset definitions (optional)
+   │   ├── noon.json
+   │   ├── lantern-lake.json
+   │   └── city.json
+   ├── demo/                   # the current index.html, moved here
+   │   ├── index.html
+   │   └── demo.js
+   └── assets/                 # default sprites shipped with the package
+       └── ...
+   #+end_example
+
+** 1.2 Public API surface
+
+   The API should be minimal and canvas-first so it works anywhere a
+   =<canvas>= element exists.
+
+   #+begin_src typescript
+   // --- Core ---
+   import { ScapeEngine, loadScape } from 'scapes'
+   import type { ScapeDefinition } from 'scapes'
+
+   // Minimal usage: give it a canvas and a definition
+   const canvas = document.getElementById('bg') as HTMLCanvasElement
+   const engine = await loadScape(canvas, definition)
+   engine.start()
+
+   // --- Granular control ---
+   engine.setCameraSpeed(120)
+   engine.setViewAngle(15)
+   engine.setFog({ enabled: true, density: 0.8, color: [200, 200, 220] })
+   engine.setDOF({ focusZ: 400, strength: 0.02 })
+   engine.resetScroll(0)
+   engine.resize(1920, 1080)
+   engine.stop()
+   engine.destroy()              // cleanup, cancel RAF, release canvases
+
+   // --- Events ---
+   engine.on('tick', (dt) => {}) // hook into the loop
+   engine.on('resize', () => {})
+   #+end_src
+
+** 1.3 Framework adapters (thin wrappers, separate packages or subpaths)
+
+*** React: =scapes/react= or =@scapes/react=
+
+    #+begin_src tsx
+    import { Scape } from 'scapes/react'
+
+    <Scape
+      definition={def}
+      cameraSpeed={80}
+      viewAngle={10}
+      className="background"
+    />
+    #+end_src
+
+    Implementation: a ~30-line component that:
+    - Creates a =<canvas ref>= and calls =loadScape()= on mount
+    - Syncs props → engine setters via =useEffect=
+    - Calls =engine.destroy()= on unmount
+
+*** Game engine integration (Phaser / PixiJS)
+
+    For game engines the user typically needs the engine to render into an
+    offscreen canvas (or a texture) that the game engine composites.
+
+    #+begin_src typescript
+    const offscreen = document.createElement('canvas')
+    const engine = await loadScape(offscreen, definition)
+
+    // Phaser: add as a background image that updates each frame
+    // PixiJS: use PIXI.Texture.from(offscreen) and refresh per tick
+    #+end_src
+
+    No special adapter needed — the offscreen canvas pattern is sufficient.
+    Document this in a guide rather than building a wrapper.
+
+** 1.4 Key refactoring decisions
+
+   - *Canvas injection*: Engine must NOT create its own canvas. Accept one.
+   - *No DOM side-effects*: Remove all =document.querySelector= from engine code.
+     The demo page owns the UI; the library owns the rendering.
+   - *Image loading*: Replace the hardcoded =_imgCache= atlas with a generic
+     sprite loader that accepts URLs, Blobs, ImageBitmaps, or CanvasImageSource.
+     #+begin_src typescript
+     interface SpriteSource {
+       name: string
+       src: string | Blob | ImageBitmap | HTMLCanvasElement
+     }
+     #+end_src
+   - *No global state*: Multiple engine instances on one page must work.
+     Move the =_imgCache= Map and zone cache into the engine instance.
+   - *Tree-shakeable*: Keep procedural drawing functions (=drawConifer()=, etc.)
+     as named exports so users who supply their own sprites don't pay for them.
+   - *Build*: Use =tsup= or =esbuild= for ESM + CJS + IIFE bundles.
+     Target: <20 KB minified+gzipped (no deps).
+
+* Part 2 — Scape Definition Format
+
+** 2.1 The =ScapeDefinition= JSON schema
+
+   A single JSON file (or JS object) that fully describes a scene and
+   points to its assets. This is what the =/scapes= skill will generate.
+
+   #+begin_src json
+   {
+     "$schema": "https://scapes.dev/schema/v1.json",
+     "version": 1,
+     "name": "Neon Cityscape",
+     "seed": 42,
+
+     "sky": {
+       "gradient": [
+         { "stop": 0.0, "color": "#000004" },
+         { "stop": 0.5, "color": "#1a0a10" },
+         { "stop": 1.0, "color": "#180808" }
+       ]
+     },
+
+     "fog": {
+       "enabled": true,
+       "density": 0.85,
+       "color": [180, 100, 50]
+     },
+
+     "backdrop": {
+       "ridges": [
+         {
+           "baseY": 0.6,
+           "amplitude": 80,
+           "color": "#1a1a3a",
+           "parallaxFactor": 0.05,
+           "seed": 7
+         }
+       ]
+     },
+
+     "ground": {
+       "nearColor": "#1a1a1a",
+       "farColor": "#0a0a1a",
+       "gridColor": "#333355"
+     },
+
+     "sprites": {
+       "atlas": "assets/cityscape-sheet.png",
+       "manifest": [
+         { "name": "building1", "x": 0, "y": 0, "w": 128, "h": 256 },
+         { "name": "building2", "x": 128, "y": 0, "w": 96, "h": 320 },
+         { "name": "streetlight", "x": 224, "y": 0, "w": 32, "h": 128 }
+       ]
+     },
+
+     "objects": {
+       "tall": [
+         {
+           "sprites": ["building1", "building2"],
+           "colors": ["#2a2a4a", "#3a2a3a"],
+           "zRange": [500, 1100],
+           "density": 0.25,
+           "width": 180
+         }
+       ],
+       "short": [
+         {
+           "sprites": ["streetlight"],
+           "colors": ["#aaaaaa"],
+           "zRange": [310, 340],
+           "density": 12,
+           "width": 30
+         }
+       ]
+     },
+
+     "camera": {
+       "speed": 60,
+       "viewAngle": 5
+     }
+   }
+   #+end_src
+
+** 2.2 Asset resolution
+
+   Assets referenced in the definition can be:
+   - Relative paths (resolved from definition file location)
+   - Absolute URLs
+   - Data URIs / inline base64 (for self-contained definitions)
+   - Blob URLs (for runtime-generated assets)
+
+   The =loadScape()= function handles resolution:
+   #+begin_src typescript
+   async function loadScape(
+     canvas: HTMLCanvasElement,
+     definition: ScapeDefinition,
+     options?: { basePath?: string }
+   ): Promise<ScapeEngine>
+   #+end_src
+
+** 2.3 Sprite atlas support
+
+   The current engine loads individual images. The definition format
+   supports a sprite atlas (single PNG sheet + manifest of regions).
+
+   =loader.ts= will:
+   1. Load the atlas image
+   2. Slice it into individual canvases per manifest entry
+   3. Feed them into the engine's sprite cache
+
+   This is important for the agent pipeline — generating one sheet is
+   faster and cheaper than generating individual images.
+
+* Part 3 — Agent Skill: =/scapes=
+
+** 3.1 User experience
+
+   #+begin_example
+   user> /scapes generate a misty mountain village at dawn
+
+   agent> I'll create a mountain village scape for you. A few questions:
+          1. Mood: soft pastels, or dramatic contrast?
+          2. Architecture style: alpine chalets, east-asian, or generic fantasy?
+          3. Density: sparse hamlet or dense village?
+          4. Any specific props? (bridges, waterfalls, smoke, etc.)
+
+   user> Soft pastels, alpine chalets, sparse, add a wooden bridge
+
+   agent> Generating sprite sheet... [uses Gemini]
+          Cutting sprites and removing backgrounds...
+          Building scape definition...
+
+          Created: scapes/village-dawn/
+          ├── definition.json
+          └── assets/
+              ├── sheet.png          (original sprite sheet)
+              ├── chalet1.png        (cut + bg-removed)
+              ├── chalet2.png
+              ├── pine-snow.png
+              ├── bridge.png
+              └── smoke-wisp.png
+
+          Preview: [launches demo page or shows screenshot]
+   #+end_example
+
+** 3.2 Pipeline steps
+
+   #+begin_example
+   ┌─────────────┐    ┌──────────────┐    ┌────────────┐    ┌──────────────┐
+   │  1. Prompt   │───▶│ 2. Generate  │───▶│ 3. Cut &   │───▶│ 4. Assemble  │
+   │  Refinement  │    │ Sprite Sheet │    │ Clean      │    │ Definition   │
+   └─────────────┘    └──────────────┘    └────────────┘    └──────────────┘
+   #+end_example
+
+*** Step 1: Prompt refinement
+
+    The skill asks clarifying questions to build a structured brief:
+    #+begin_src json
+    {
+      "theme": "alpine village",
+      "timeOfDay": "dawn",
+      "mood": "soft pastels",
+      "props": ["chalet", "pine tree", "wooden bridge", "smoke wisp"],
+      "density": "sparse",
+      "palette": ["#f0e6d8", "#8ba4b8", "#5a7a5a", "#d4a574"]
+    }
+    #+end_src
+
+*** Step 2: Generate sprite sheet via Gemini
+
+    Use Gemini's image generation (gemini-2.0-flash-exp or the Nano
+    Banana Pro model available via API key in env).
+
+    *Prompt engineering for the sprite sheet:*
+
+    The key challenge is getting Gemini to produce a clean, well-separated
+    sprite sheet. The prompt should request:
+
+    #+begin_example
+    Generate a 2D game sprite sheet on a bright green (#00FF00) background.
+    The sheet should contain the following props arranged in a grid with
+    clear spacing between each item:
+
+    Row 1: [chalet front view] [chalet side view] [tall pine tree with snow]
+    Row 2: [wooden bridge side view] [smoke wisp] [small bush]
+
+    Style: Soft watercolor, flat shading, no outlines, side-view silhouette
+    suitable for a 2.5D parallax scroller. Each prop should be self-contained
+    with no overlapping elements. Consistent lighting from upper-left.
+    Palette: warm pastels (#f0e6d8, #8ba4b8, #5a7a5a, #d4a574).
+    #+end_example
+
+    *API call:*
+    #+begin_src typescript
+    // Using @google/generative-ai SDK
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' })
+
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: spriteSheetPrompt }] }],
+      generationConfig: {
+        responseModalities: ['IMAGE', 'TEXT'],
+      }
+    })
+
+    // Extract image from response
+    const imagePart = result.response.candidates[0].content.parts
+      .find(p => p.inlineData)
+    const imageBuffer = Buffer.from(imagePart.inlineData.data, 'base64')
+    fs.writeFileSync('assets/sheet.png', imageBuffer)
+    #+end_src
+
+    *Fallback strategy:*
+    If one sheet doesn't produce clean results, generate props individually
+    (one API call per prop). More expensive but more reliable.
+
+*** Step 3: Cut sprites & remove backgrounds
+
+    *3a. Detect sprite regions:*
+
+    Since we request a green-screen background, detection is straightforward:
+
+    #+begin_src typescript
+    // Using sharp (already available in Node, lightweight)
+    import sharp from 'sharp'
+
+    async function findSpriteRegions(sheetPath: string): Promise<Region[]> {
+      const { data, info } = await sharp(sheetPath)
+        .raw()
+        .toBuffer({ resolveWithObject: true })
+
+      // 1. Create binary mask: pixel is "content" if NOT green-screen
+      //    Green-screen: R < 50, G > 200, B < 50 (with tolerance)
+      // 2. Connected-component labeling or simple bounding-box scan
+      // 3. Return array of { x, y, w, h, name? } bounding boxes
+    }
+    #+end_src
+
+    *3b. Chroma key background removal:*
+
+    #+begin_src typescript
+    async function chromaKey(
+      sheetPath: string,
+      region: Region,
+      outputPath: string,
+      keyColor: [number, number, number] = [0, 255, 0],
+      tolerance: number = 60
+    ): Promise<void> {
+      const cropped = await sharp(sheetPath)
+        .extract({ left: region.x, top: region.y,
+                   width: region.w, height: region.h })
+        .raw()
+        .toBuffer({ resolveWithObject: true })
+
+      const { data, info } = cropped
+      const output = Buffer.alloc(info.width * info.height * 4)
+
+      for (let i = 0; i < data.length; i += 3) {
+        const j = (i / 3) * 4
+        const dr = data[i] - keyColor[0]
+        const dg = data[i + 1] - keyColor[1]
+        const db = data[i + 2] - keyColor[2]
+        const dist = Math.sqrt(dr * dr + dg * dg + db * db)
+
+        output[j] = data[i]         // R
+        output[j + 1] = data[i + 1] // G
+        output[j + 2] = data[i + 2] // B
+        output[j + 3] = dist < tolerance ? 0 : 255  // A
+      }
+
+      await sharp(output, {
+        raw: { width: info.width, height: info.height, channels: 4 }
+      }).png().toFile(outputPath)
+    }
+    #+end_src
+
+    *Alternative: use =remove.bg= style lib*
+
+    If chroma key proves too noisy (Gemini may not produce perfectly
+    clean green backgrounds), use =@imgly/background-removal-node=
+    which runs a local U2-Net model (~40 MB). Slower but handles
+    arbitrary backgrounds:
+
+    #+begin_src typescript
+    import { removeBackground } from '@imgly/background-removal-node'
+
+    const blob = await removeBackground(inputBlob)
+    #+end_src
+
+    This is a good fallback. Try chroma key first (fast, no deps),
+    fall back to ML removal if green-screen quality is poor.
+
+*** Step 4: Assemble scape definition
+
+    The skill generates the =ScapeDefinition= JSON:
+
+    1. *Sky & fog*: Derived from theme + time of day. Use a lookup table
+       of palettes (dawn → warm pastels, dusk → orange/purple, night → deep blue).
+
+    2. *Backdrop ridges*: Generated from theme. Mountains for alpine,
+       rolling hills for pastoral, flat horizon for city.
+
+    3. *Sprite manifest*: Built from the cut regions in step 3.
+
+    4. *Object placement rules*: Map each sprite to tall/short category
+       based on aspect ratio and semantic label. Assign z-ranges and
+       densities based on the user's density preference.
+
+    5. *Ground colors*: Derived from palette.
+
+    The skill uses Claude itself to reason about good parameter values
+    given the theme, then writes the JSON.
+
+** 3.3 Skill implementation
+
+   The skill lives as a Claude Code custom slash command.
+
+   #+begin_example
+   .claude/
+   └── commands/
+       └── scapes.md
+   #+end_example
+
+   =scapes.md= prompt structure:
+
+   #+begin_src markdown
+   ---
+   description: Generate a parallax sidescroller background scape
+   ---
+
+   You are the Scapes generator. The user wants to create a 2.5D parallax
+   scrolling environment. Your job:
+
+   1. ASK clarifying questions (theme, mood, props, density, time of day).
+   2. GENERATE a sprite sheet using the Gemini image generation API.
+   3. CUT individual sprites from the sheet and remove backgrounds.
+   4. ASSEMBLE a ScapeDefinition JSON with appropriate sky, fog, ridges,
+      ground, and object placement parameters.
+   5. WRITE all files to a new directory under the project.
+
+   ## Gemini API usage
+   - API key is in env: $GEMINI_API_KEY
+   - Model: gemini-2.0-flash-exp (supports image generation)
+   - Request a sprite sheet on #00FF00 green-screen background
+   - [detailed prompt template here]
+
+   ## Background removal
+   - Use sharp for chroma key (fast path)
+   - Fall back to @imgly/background-removal-node if quality is poor
+
+   ## ScapeDefinition schema
+   [embed the JSON schema here]
+
+   ## Palette presets
+   [dawn, noon, dusk, night, overcast color palettes]
+
+   ## Sprite categorization rules
+   - Aspect ratio > 1.5 (tall) → tall objects
+   - Aspect ratio < 1.5 → short objects
+   - [semantic rules based on prop names]
+   #+end_src
+
+** 3.4 Required dependencies for the skill pipeline
+
+   #+begin_example
+   sharp                          # image manipulation, cropping, chroma key
+   @google/generative-ai          # Gemini API SDK
+   @imgly/background-removal-node # fallback bg removal (optional, ~40 MB)
+   #+end_example
+
+** 3.5 Potential issues & mitigations
+
+   | Issue                                | Mitigation                                            |
+   |--------------------------------------+-------------------------------------------------------|
+   | Gemini produces overlapping sprites  | Request generous spacing; fallback to per-prop gen     |
+   | Green-screen bleed on sprite edges   | Erode mask by 1px; or use ML background removal       |
+   | Gemini style inconsistency           | Include style reference in prompt; regenerate on fail  |
+   | Large sprite sheet (>4K)             | Cap at 2048×2048; split into multiple sheets if needed |
+   | Gemini rate limits                   | Batch props into single sheet; cache results           |
+   | Sprite scale mismatch                | Normalize all sprites to consistent px-per-world-unit  |
+   | Non-deterministic generation         | Save seed in definition; re-generation creates new dir |
+
+* Part 4 — Implementation Phases
+
+** Phase 1: Library core (do first)
+   - [ ] Extract ScapeEngine + layers into =src/= with clean imports
+   - [ ] Remove DOM coupling (accept canvas, no document queries)
+   - [ ] Instance-level state (no module-global caches)
+   - [ ] Define =ScapeDefinition= TypeScript type / JSON schema
+   - [ ] Implement =loadScape()= that hydrates engine from definition
+   - [ ] Implement sprite atlas loader (sheet + manifest → sprite cache)
+   - [ ] Move presets to JSON files
+   - [ ] Add =package.json= with =tsup= build (ESM + CJS + IIFE)
+   - [ ] Move current index.html → =demo/=
+   - [ ] Smoke test: demo page works identically via library imports
+
+** Phase 2: React adapter
+   - [ ] =<Scape>= component (~30 lines)
+   - [ ] Props for all engine controls
+   - [ ] Cleanup on unmount
+   - [ ] Example: React app with scape as parallax background
+
+** Phase 3: Asset pipeline (=/scapes= skill)
+   - [ ] Write =.claude/commands/scapes.md= skill prompt
+   - [ ] Implement Gemini sprite sheet generation (prompt engineering)
+   - [ ] Implement chroma key background removal with =sharp=
+   - [ ] Implement sprite region detection (bounding box scan)
+   - [ ] Implement =ScapeDefinition= assembly from extracted sprites
+   - [ ] Test end-to-end: =/scapes generate a forest= → working scape
+   - [ ] Add ML background removal fallback
+
+** Phase 4: Polish
+   - [ ] Publish to npm
+   - [ ] Interactive demo site
+   - [ ] Gallery of generated scapes
+   - [ ] Documentation
