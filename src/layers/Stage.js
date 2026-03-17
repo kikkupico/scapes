@@ -10,13 +10,22 @@ const ATMO_HUE    = 15;    // degrees cool hue-rotate at t=1
 const ATMO_DESAT  = 0.35;  // saturation reduction at t=1
 const ATMO_LIGHT  = 0.18;  // brightness gain at t=1
 
+/** Sine-based noise for ground texture. Returns roughly -1..1. */
+function groundNoise(x, y, seed) {
+  let v = 0;
+  v += Math.sin(x * 0.03 + seed) * Math.sin(y * 0.05 + seed * 1.7);
+  v += Math.sin(x * 0.07 + seed * 2.3 + Math.sin(y * 0.04 + seed) * 0.3) * 0.6;
+  v += Math.sin(x * 0.15 + y * 0.08 + seed * 0.5) * 0.3;
+  return v;
+}
+
 /**
  * Renders a ground plane and sprite objects with perspective projection.
  *
  * Objects are explicitly positioned in world-space (x, y, z).
  * When `tileWidth` > 0, the object set repeats infinitely along x.
  *
- * @param {object}   ground     { nearColor, farColor, gridColor? }
+ * @param {object}   ground     { nearColor, farColor, gridColor?, texture? }
  * @param {object[]} objects    Array of { sprite, x, y, z, width, height }
  * @param {number}   tileWidth  World units before the pattern repeats (0 = no tiling)
  * @param {Map<string,CanvasImageSource>} sprites  Sprite registry
@@ -127,6 +136,44 @@ export class Stage {
     ctx.fillStyle = grad;
     ctx.fillRect(0, horizonY, W, H - horizonY);
 
+    // ── Ground texture ──────────────────────────────────────
+    const texture = this.ground.texture;
+    if (texture) {
+      const {
+        color = 'rgba(0,0,0,0.15)',
+        seed  = 42,
+        scale = 1,
+      } = texture;
+
+      const STEP = 4;
+
+      ctx.save();
+      ctx.fillStyle = color;
+
+      for (let sy = Math.round(horizonY) + STEP; sy < H; sy += STEP) {
+        // Derive world-z from screen y (inverse perspective projection)
+        const depthT = (sy - horizonY) / eyeHeight; // 0 at horizon, 1 at bottom
+        if (depthT <= 0) continue;
+        const worldZ = focalLength / depthT;
+
+        // Perspective-correct scroll: each row scrolls at its own depth rate
+        const rowScroll = cameraX * (focalLength / worldZ);
+        const depthScale = depthT * depthT; // stronger near camera
+
+        for (let sx = 0; sx < W; sx += STEP) {
+          const n = groundNoise((sx + rowScroll) * scale, worldZ * scale * 0.1, seed);
+          if (n < 0) continue;
+          const alpha = n * depthScale * 1.5;
+          if (alpha < 0.01) continue;
+
+          ctx.globalAlpha = alpha;
+          ctx.fillRect(sx, sy, STEP, STEP);
+        }
+      }
+
+      ctx.restore();
+    }
+
     if (gridColor) {
       const vx = W / 2;
       ctx.save();
@@ -169,7 +216,7 @@ export class Stage {
     for (const obj of this.objects) {
       if (!obj.sprite) continue;
 
-      if (this.tileWidth > 0) {
+      if (this.tileWidth > 0 && !obj.landmark) {
         // Find tile repetitions that bring this object into view
         const scale    = focalLength / obj.z;
         const viewHalf = (W / 2) / scale + obj.width;

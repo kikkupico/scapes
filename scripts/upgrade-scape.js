@@ -81,12 +81,18 @@ async function runPrepare(name) {
   const promptPath = path.join(outDir, 'prompt.txt');
   fs.writeFileSync(promptPath, prompt);
 
+  // Generate and save panorama prompt
+  const panoramaPrompt = buildPanoramaPrompt(brief);
+  const panoramaPromptPath = path.join(outDir, 'panorama-prompt.txt');
+  fs.writeFileSync(panoramaPromptPath, panoramaPrompt);
+
   log('');
   log('Prepare complete!');
   log('');
   log('Files created:');
   log(`  generated/${hdName}/assets/reference-sheet.png`);
   log(`  generated/${hdName}/prompt.txt`);
+  log(`  generated/${hdName}/panorama-prompt.txt`);
   log(`  generated/${hdName}/layout.json`);
   log('');
   log('Next steps:');
@@ -94,7 +100,10 @@ async function runPrepare(name) {
   log('  2. Use the prompt from prompt.txt');
   log('  3. Save the result as:');
   log(`     generated/${hdName}/assets/sheet.png`);
-  log('  4. Run:');
+  log('  4. (Optional) Generate a sky panorama using panorama-prompt.txt');
+  log('     Save as:');
+  log(`     generated/${hdName}/assets/sky-panorama.png`);
+  log('  5. Run:');
   log(`     node scripts/upgrade-scape.js extract ${name}`);
 }
 
@@ -125,12 +134,25 @@ async function runExtract(name) {
     name: s.name,
     src: `assets/${s.file}`,
   }));
+
+  // Detect sky panorama
+  const skyPanoPath = path.join(assetsDir, 'sky-panorama.png');
+  if (fs.existsSync(skyPanoPath)) {
+    definition.sky = definition.sky ?? {};
+    definition.sky.panorama = {
+      src:   'assets/sky-panorama.png',
+      speed: 0.01,
+    };
+    log('  + sky-panorama.png detected, added to definition');
+  }
+
   fs.writeFileSync(defPath, JSON.stringify(definition, null, 2));
 
   log('');
   log(`Upgrade complete!  generated/${hdName}/`);
   log(`  definition.json  (updated)`);
   newSprites.forEach(s => log(`  assets/${s.file}`));
+  if (fs.existsSync(skyPanoPath)) log(`  assets/sky-panorama.png  (sky)`);
   log('');
   log(`Original SVG scape preserved at: generated/${name}/`);
   log(`HD scape created at: generated/${hdName}/`);
@@ -183,8 +205,27 @@ async function runAuto(name) {
   fs.writeFileSync(upgradedPath, upgradedSheet);
   log(`Upgraded sheet saved (${upgradedSheet.length} bytes)`);
 
-  // Extract
+  // Extract sprites
   const newSprites = await extractSprites(upgradedSheet, layout, sheetW, sheetH, assetsDir);
+
+  // Generate sky panorama
+  log('Generating sky panorama…');
+  const panoramaPrompt = buildPanoramaPrompt(brief);
+  try {
+    const panoramaBuf = await callGeminiWithRetry(gen, [
+      { text: panoramaPrompt },
+    ], 'sky panorama');
+
+    const panoramaPath = path.join(assetsDir, 'sky-panorama.png');
+    fs.writeFileSync(panoramaPath, panoramaBuf);
+    log(`Sky panorama saved (${panoramaBuf.length} bytes)`);
+
+    definition.sky = definition.sky ?? {};
+    definition.sky.panorama = { src: 'assets/sky-panorama.png', speed: 0.01 };
+  } catch (err) {
+    log(`  ⚠ Sky panorama generation failed: ${err.message.slice(0, 100)}`);
+    log('  Falling back to procedural sky');
+  }
 
   // Update definition
   definition.sprites.individual = newSprites.map(s => ({
@@ -197,6 +238,7 @@ async function runAuto(name) {
   log(`Upgrade complete!  generated/${hdName}/`);
   log(`  definition.json  (updated)`);
   newSprites.forEach(s => log(`  assets/${s.file}`));
+  if (definition.sky?.panorama) log(`  assets/sky-panorama.png  (sky)`);
   log('');
   log(`Original SVG scape preserved at: generated/${name}/`);
   log(`HD scape created at: generated/${hdName}/`);
@@ -289,6 +331,23 @@ function buildPrompt(brief, layout, sheetW, sheetH) {
   const { style = 'flat illustration' } = brief;
 
   return `Convert this sprite sheet to ${style} style`;
+}
+
+// ── Shared: build sky panorama prompt ────────────────────────
+
+function buildPanoramaPrompt(brief) {
+  const { style = 'painterly', mood = '', theme = '', timeOfDay = 'day' } = brief;
+
+  return [
+    `Generate a wide seamlessly horizontally tileable panoramic sky image.`,
+    `Style: ${style}. Time of day: ${timeOfDay}. Theme: ${theme}.`,
+    mood ? `Mood: ${mood}.` : '',
+    `The image should be 2048 pixels wide and 540 pixels tall.`,
+    `It must tile seamlessly left-to-right (left edge matches right edge perfectly).`,
+    `Include clouds and atmospheric effects appropriate to the time of day.`,
+    `The bottom ~15% should fade to a hazy horizon — no ground, buildings, or foreground.`,
+    `Do NOT include any text, watermarks, or borders.`,
+  ].filter(Boolean).join('\n');
 }
 
 // ── Shared: extract sprites from upgraded sheet ─────────────

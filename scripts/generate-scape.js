@@ -132,10 +132,21 @@ function buildDefinition(brief, sprites) {
     // World height: prefer agent-specified, fall back to 100
     const worldH = sp.worldHeight ?? 100;
     const worldW = Math.max(10, Math.round(worldH * sp.aspectRatio));
-    // Placement: "background" (far+mid+near z), "midground", or "foreground"
+    // Placement: "background", "midground", "foreground", or "landmark" (single far instance)
     const placement = sp.placement ?? (worldH >= 100 ? 'background' : 'foreground');
 
-    if (placement === 'background') {
+    if (placement === 'landmark') {
+      // Single instance, far away — for unique props like a lighthouse
+      const z = Z_FAR[farIdx % Z_FAR.length];
+      farIdx++;
+      const x = rng() * tileWidth * 0.6 + tileWidth * 0.2;
+      objects.push({
+        sprite: sp.name,
+        x: Math.round(x), y: 0, z,
+        width: worldW, height: worldH,
+        landmark: true,
+      });
+    } else if (placement === 'background') {
       // Place across 3 z-levels
       const zLevels = [
         Z_FAR[farIdx % Z_FAR.length],
@@ -228,12 +239,12 @@ function assembleScene(theme, timeOfDay, palette = []) {
     night: [80,80,120], overcast: [180,185,190],
   };
   const GROUND = {
-    forest:   { nearColor:'#1e3820', farColor:'#1a3030', gridColor:'rgba(80,160,80,0.35)' },
-    mountain: { nearColor:'#2a2a20', farColor:'#1a1a18' },
+    forest:   { nearColor:'#1e3820', farColor:'#1a3030', texture: { color:'rgba(40,80,30,0.3)', seed:31, scale:1.2 } },
+    mountain: { nearColor:'#2a2a20', farColor:'#1a1a18', texture: { color:'rgba(60,55,40,0.25)', seed:19 } },
     city:     { nearColor:'#09090c', farColor:'#07070e', gridColor:'rgba(100,90,80,0.5)' },
-    desert:   { nearColor:'#6a5030', farColor:'#4a3820' },
-    beach:    { nearColor:'#c8b870', farColor:'#a09050' },
-    generic:  { nearColor:'#1e2a18', farColor:'#181e14', gridColor:'rgba(80,120,60,0.3)' },
+    desert:   { nearColor:'#6a5030', farColor:'#4a3820', texture: { color:'rgba(180,150,90,0.2)', seed:42, scale:0.8 } },
+    beach:    { nearColor:'#c8b870', farColor:'#a09050', texture: { color:'rgba(200,180,120,0.15)', seed:55, scale:0.7 } },
+    generic:  { nearColor:'#1e2a18', farColor:'#181e14', texture: { color:'rgba(60,90,40,0.2)', seed:63 } },
   };
   const RIDGES = {
     mountain: [
@@ -251,6 +262,11 @@ function assembleScene(theme, timeOfDay, palette = []) {
       { baseY:0.96, amplitude:0.07, color:'#705030', parallaxFactor:0.09, seed:55 },
       { baseY:1.02, amplitude:0.04, color:'#584028', parallaxFactor:0.15, seed:67 },
     ],
+    beach: [
+      { baseY:0.92, amplitude:0.04, color:'#5a7090', parallaxFactor:0.03, seed:11 },
+      { baseY:0.96, amplitude:0.03, color:'#4a6070', parallaxFactor:0.07, seed:44 },
+      { baseY:1.00, amplitude:0.02, color:'#3a5060', parallaxFactor:0.12, seed:77 },
+    ],
     generic: [
       { baseY:0.87, amplitude:0.24, color:'#7090b0', snowColor:'rgba(255,255,255,0.85)', snowLine:0.38, parallaxFactor:0.05, seed:11 },
       { baseY:0.945,amplitude:0.18, color:'#507060', parallaxFactor:0.10, seed:77 },
@@ -258,13 +274,25 @@ function assembleScene(theme, timeOfDay, palette = []) {
     ],
   };
 
+  const CLOUDS = {
+    dawn:     { color:'rgba(255,200,150,0.5)', speed:0.02, density:0.35, seed:17, top:0.05, bottom:0.5 },
+    noon:     { color:'rgba(255,255,255,0.6)', speed:0.02, density:0.4,  seed:7,  top:0.02, bottom:0.55 },
+    dusk:     { color:'rgba(255,160,100,0.5)', speed:0.02, density:0.45, seed:23, top:0.05, bottom:0.55 },
+    night:    null,
+    overcast: { color:'rgba(200,200,210,0.7)', speed:0.015,density:0.7,  seed:11, top:0.0,  bottom:0.6 },
+  };
+
   const skyColors = SKY[timeOfDay]  ?? SKY.noon;
   const fogColor  = FOG[timeOfDay]  ?? FOG.noon;
+  const clouds    = CLOUDS[timeOfDay] ?? CLOUDS.noon;
   const ground    = GROUND[theme]   ?? GROUND.generic;
   const ridges    = RIDGES[theme]   ?? RIDGES.generic;
 
+  const sky = { gradient: skyColors.map((color, i) => ({ stop: i / (skyColors.length - 1), color })) };
+  if (clouds) sky.clouds = clouds;
+
   return {
-    sky:      { gradient: skyColors.map((color, i) => ({ stop: i / (skyColors.length - 1), color })) },
+    sky,
     fog:      { enabled: false, density: 0.88, color: fogColor },
     backdrop: { ridges },
     ground,

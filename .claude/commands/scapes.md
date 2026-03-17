@@ -80,6 +80,7 @@ Each prop is an object with:
 - `name` — descriptive label, slugified to match SVG filename (e.g. `"snow-dusted alpine pine"` → `snow-dusted-alpine-pine.svg`)
 - `worldHeight` — height in world units. You decide this based on what the prop represents. Tall structures (towers, trees): 200–340. Medium buildings (houses, stalls): 100–180. Small objects (pots, baskets, lanterns): 30–60.
 - `placement` — where in the scene depth the prop appears:
+  - `"landmark"` — single instance, far away (unique props like a lighthouse, windmill, or castle)
   - `"background"` — placed at far, mid, and near z-levels (good for large structures that define the skyline)
   - `"midground"` — placed at mid and near z-levels (medium-sized props)
   - `"foreground"` — scattered at near z only (small ground-level detail props)

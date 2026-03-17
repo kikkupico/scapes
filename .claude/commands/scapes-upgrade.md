@@ -65,11 +65,14 @@ Tell the user:
 3. **Go to an image generator** (e.g. Gemini in Google AI Studio, ChatGPT, Midjourney, etc.)
 4. **Upload the reference sheet** and **paste the prompt**
 5. **Download the result** and save it as: `generated/<name>-hd/assets/sheet.png`
-6. **Tell you** when it's done
+6. **(Optional) Generate a sky panorama** using `generated/<name>-hd/panorama-prompt.txt`
+   Save as: `generated/<name>-hd/assets/sky-panorama.png`
+   This replaces the procedural gradient sky with a painted panoramic background.
+7. **Tell you** when it's done
 
-Read `prompt.txt` and display it so the user can copy it easily.
+Read `prompt.txt` and `panorama-prompt.txt` and display both so the user can copy them easily.
 
-Then STOP and wait for the user to confirm they've placed the image.
+Then STOP and wait for the user to confirm they've placed the image(s).
 
 ### Step 4 — Extract (after user confirms)
 

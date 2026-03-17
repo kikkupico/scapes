@@ -93,7 +93,18 @@ export async function loadScape(canvas, definition, options = {}) {
   // 3. Sky
   if (definition.sky) {
     const stops = definition.sky.gradient.map(g => g.color);
-    engine.sky = new Sky(stops);
+    let panorama = null;
+
+    if (definition.sky.panorama) {
+      const panSrc = resolvePath(definition.sky.panorama.src, basePath);
+      const panImg = await loadImageSrc(panSrc);
+      panorama = {
+        img:   panImg,
+        speed: definition.sky.panorama.speed ?? 0.01,
+      };
+    }
+
+    engine.sky = new Sky(stops, definition.sky.clouds ?? null, panorama);
   }
 
   // 4. Backdrop
