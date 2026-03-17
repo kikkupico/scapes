@@ -3,7 +3,8 @@ import { ScapeEngine, Sky, Backdrop, Stage, loadScape } from './src/index.js';
 // ── Scape registry ──────────────────────────────────────────
 
 const SCAPES = [
-  { id: 'desert-market',  name: 'Desert Market',  url: './generated/desert-market/definition.json',  tag: 'generated' },
+  { id: 'desert-market',     name: 'Desert Market',      url: './generated/desert-market/definition.json',     tag: 'generated' },
+  { id: 'desert-market-hd',  name: 'Desert Market HD',   url: './generated/desert-market-hd/definition.json',  tag: 'generated' },
 ];
 
 // ── Engine setup ────────────────────────────────────────────

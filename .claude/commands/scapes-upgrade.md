@@ -1,12 +1,19 @@
 ---
-description: Upgrade a generated scape's SVG sprites to AI-generated images via Gemini
+description: Upgrade a generated scape's SVG sprites to AI-generated images
 ---
 
 You are upgrading an existing scape from SVG sprites to high-quality AI-generated images. The upgrade creates a new HD copy — the original SVG scape is preserved.
 
 User's request: $ARGUMENTS
 
-## Your workflow
+## Choose the mode
+
+- If the user said "manual", or if `GEMINI_API_KEY` is not set, use the **Manual workflow** below.
+- Otherwise, use the **Auto workflow**.
+
+---
+
+## Auto workflow
 
 ### Step 1 — Identify the scape
 
@@ -15,54 +22,71 @@ If the user specified a scape name, use that. Otherwise, list available scapes:
 ls generated/
 ```
 
-Verify the scape exists and has SVG sprites:
-```bash
-ls generated/<name>/assets/*.svg
-```
-
-If there are no SVGs (already upgraded or never generated), tell the user.
-
----
-
-### Step 2 — Run the upgrade
+### Step 2 — Run the auto upgrade
 
 ```bash
-node scripts/upgrade-scape.js <name>
+node scripts/upgrade-scape.js auto <name>
 ```
-
-This will:
-1. Copy the original scape to `generated/<name>-hd/`
-2. Render the SVGs into a reference sprite sheet
-3. Send the sheet to Gemini with style/mood from the original brief
-4. Gemini redraws the sprites with higher quality in the same layout
-5. Extract individual PNGs via chroma-key background removal
-6. Update `generated/<name>-hd/definition.json` to reference the new PNGs
-
-The original scape at `generated/<name>/` is left completely untouched.
-
----
 
 ### Step 3 — Add to the demo
 
-After the script succeeds, add the HD scape to `demo.js` PRESET_URLS:
-```js
-'<name>-hd': './generated/<name>-hd/definition.json',
-```
-
-And add a button in `index.html`:
-```html
-<button data-preset="<name>-hd">Name HD</button>
-```
+Add the HD scape to `demo.js` SCAPES array and report results.
 
 ---
 
-### Step 4 — Report results
+## Manual workflow
+
+This is a collaborative workflow — you prepare the assets, the user generates the image, then you finish extraction.
+
+### Step 1 — Identify the scape
+
+If the user specified a scape name, use that. Otherwise, list available scapes:
+```bash
+ls generated/
+```
+
+### Step 2 — Prepare
+
+```bash
+node scripts/upgrade-scape.js prepare <name>
+```
+
+This creates `generated/<name>-hd/` with:
+- `assets/reference-sheet.png` — the composite sprite sheet to upload
+- `prompt.txt` — the prompt to paste into the image generator
+- `layout.json` — grid coordinates for extraction
+
+### Step 3 — Hand off to the user
 
 Tell the user:
-- How many sprites were upgraded
-- That the HD scape is at `generated/<name>-hd/`
-- That the original SVG scape is preserved at `generated/<name>/`
-- That they can preview either version in the demo
+
+1. **Open** `generated/<name>-hd/assets/reference-sheet.png` — this is the sprite sheet to upload
+2. **Copy the prompt** from `generated/<name>-hd/prompt.txt`
+3. **Go to an image generator** (e.g. Gemini in Google AI Studio, ChatGPT, Midjourney, etc.)
+4. **Upload the reference sheet** and **paste the prompt**
+5. **Download the result** and save it as: `generated/<name>-hd/assets/sheet.png`
+6. **Tell you** when it's done
+
+Read `prompt.txt` and display it so the user can copy it easily.
+
+Then STOP and wait for the user to confirm they've placed the image.
+
+### Step 4 — Extract (after user confirms)
+
+When the user says the image is ready:
+
+```bash
+node scripts/upgrade-scape.js extract <name>
+```
+
+### Step 5 — Add to the demo
+
+Add the HD scape to `demo.js` SCAPES array:
+```js
+{ id: '<name>-hd', name: '<Name> HD', url: './generated/<name>-hd/definition.json', tag: 'generated' },
+```
+
+Report results — how many sprites extracted, both versions available.
 
 ---
 
@@ -70,8 +94,8 @@ Tell the user:
 
 | Problem | Fix |
 |---------|-----|
-| `GEMINI_API_KEY not set` | Ask user to set it: `export GEMINI_API_KEY=…` |
-| `No brief.json found` | The scape was created before the brief was saved. Ask the user to recreate it with `/scapes` |
-| `No SVG sprites to upgrade` | The scape already uses PNG images |
-| `Gemini did not return an image` | Try setting `GEMINI_MODEL=gemini-2.0-flash-exp` |
-| Fewer sprites than expected | Gemini may have merged some. The script falls back to per-prop generation |
+| `GEMINI_API_KEY not set` | Switch to manual workflow |
+| `No brief.json found` | Recreate the scape with `/scapes` |
+| `No SVG sprites to upgrade` | Already using PNG images |
+| `No sheet.png found` | User hasn't placed the upgraded image yet |
+| `Gemini did not return an image` | Switch to manual workflow |
