@@ -3,9 +3,10 @@ import { ScapeEngine, Sky, Backdrop, Stage, loadScape } from './src/index.js';
 // ── Preset loading ────────────────────────────────────────────
 
 const PRESET_URLS = {
-  noon:    './presets/noon.json',
-  lantern: './presets/lantern-lake.json',
-  city:    './presets/city.json',
+  noon:             './presets/noon.json',
+  lantern:          './presets/lantern-lake.json',
+  city:             './presets/city.json',
+  'alpine-village': './generated/alpine-village/definition.json',
 };
 
 // ── Engine setup ──────────────────────────────────────────────
@@ -14,14 +15,17 @@ const canvas = document.getElementById('scape');
 let engine   = null;
 let playing  = true;
 
-async function applyPreset(name) {
+async function applyPreset(nameOrUrl) {
   const wasPlaying = playing;
 
   // Stop current engine if one exists
   if (engine) engine.stop();
 
-  const def = await fetch(PRESET_URLS[name]).then(r => r.json());
-  engine = await loadScape(canvas, def);
+  // Accept either a key in PRESET_URLS or a direct JSON path/URL
+  const url = PRESET_URLS[nameOrUrl] ?? nameOrUrl;
+  const def = await fetch(url).then(r => r.json());
+  const basePath = url.substring(0, url.lastIndexOf('/'));
+  engine = await loadScape(canvas, def, { basePath });
 
   // Re-apply current UI control state (in case user changed things before switching)
   engine.cameraSpeed = +document.getElementById('sl-speed').value;

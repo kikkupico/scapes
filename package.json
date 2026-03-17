@@ -22,5 +22,11 @@
     "environment"
   ],
   "license": "MIT",
-  "devDependencies": {}
+  "scripts": {
+    "scapes": "node scripts/generate-scape.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "sharp": "^0.33.0"
+  }
 }
