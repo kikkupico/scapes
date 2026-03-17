@@ -1,0 +1,56 @@
+{
+  "$schema": "../src/schema/v1.json",
+  "version": 1,
+  "name": "Lantern Lake",
+  "seed": 122,
+
+  "sky": {
+    "gradient": [
+      { "stop": 0.00, "color": "#0a0520" },
+      { "stop": 0.17, "color": "#180838" },
+      { "stop": 0.33, "color": "#3d1250" },
+      { "stop": 0.50, "color": "#7a2060" },
+      { "stop": 0.67, "color": "#c44860" },
+      { "stop": 0.83, "color": "#e87840" },
+      { "stop": 1.00, "color": "#f4c060" }
+    ]
+  },
+
+  "fog": {
+    "enabled": false,
+    "density": 0.88,
+    "color": [220, 130, 70]
+  },
+
+  "backdrop": {
+    "ridges": [
+      { "baseY": 0.82, "amplitude": 0.18, "color": "#1a0d2e", "parallaxFactor": 0.04, "seed": 31 },
+      { "baseY": 0.91, "amplitude": 0.11, "color": "#12081e", "parallaxFactor": 0.09, "seed": 42 },
+      { "baseY": 1.00, "amplitude": 0.05, "color": "#0c0514", "parallaxFactor": 0.15, "seed": 53 }
+    ]
+  },
+
+  "ground": {
+    "nearColor": "#080c14",
+    "farColor":  "#090e1a",
+    "gridColor": "rgba(80,100,160,0.35)"
+  },
+
+  "objects": {
+    "tall": [
+      { "sprites": ["pagoda"], "kind": "building",  "z": 920, "width": 70, "height": 280, "density": 0.03, "color": "#18080e" },
+      { "sprites": ["bamboo"], "kind": "conifer",   "z": 580, "width": 50, "height": 280, "density": 0.14, "color": "#0a1808", "trunkColor": "#060c04" },
+      { "sprites": ["willow"], "kind": "deciduous", "z": 360, "width": 80, "height": 300, "density": 0.12, "color": "#0a1a08", "trunkColor": "#060c04" }
+    ],
+    "short": [
+      { "sprites": ["lantern"], "kind": "rock",  "z": 300, "width": 28, "height": 52,  "density": 0.18, "color": "#c83818", "floatY": [30, 200], "floatZ": [200, 900] },
+      { "sprites": ["lotus"],   "kind": "bush",  "z": 320, "width": 55, "height": 35,  "density": 0.22, "color": "#d07888" },
+      { "kind": "grass",                          "z": 290, "width": 20, "height": 22,  "density": 0.35, "color": "#1a3020" }
+    ]
+  },
+
+  "camera": {
+    "speed": 80,
+    "viewAngle": 20
+  }
+}

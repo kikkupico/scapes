@@ -518,15 +518,15 @@
 * Part 4 — Implementation Phases
 
 ** Phase 1: Library core (do first)
-   - [ ] Extract ScapeEngine + layers into =src/= with clean imports
-   - [ ] Remove DOM coupling (accept canvas, no document queries)
-   - [ ] Instance-level state (no module-global caches)
-   - [ ] Define =ScapeDefinition= TypeScript type / JSON schema
-   - [ ] Implement =loadScape()= that hydrates engine from definition
-   - [ ] Implement sprite atlas loader (sheet + manifest → sprite cache)
-   - [ ] Move presets to JSON files
-   - [ ] Add =package.json= with =tsup= build (ESM + CJS + IIFE)
-   - [ ] Move current index.html → =demo/=
+   - [x] Extract ScapeEngine + layers into =src/= with clean imports
+   - [x] Remove DOM coupling (accept canvas, no document queries)
+   - [x] Instance-level state (no module-global caches)
+   - [x] Define =ScapeDefinition= JSON format (presets/*.json as living examples)
+   - [x] Implement =loadScape()= that hydrates engine from definition
+   - [x] Implement sprite atlas loader (sheet + manifest → sprite cache)
+   - [x] Move presets to JSON files (presets/noon.json, lantern-lake.json, city.json)
+   - [x] Add =package.json= (no build step needed — pure ESM, no deps)
+   - [x] Move current index.html → =demo/= (demo/index.html + demo/demo.js)
    - [ ] Smoke test: demo page works identically via library imports
 
 ** Phase 2: React adapter

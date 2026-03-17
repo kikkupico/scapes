@@ -1,0 +1,26 @@
+{
+  "name": "scapes",
+  "version": "0.1.0",
+  "description": "2.5D parallax scrolling environment engine for browser canvas",
+  "type": "module",
+  "main": "./src/index.js",
+  "module": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src",
+    "presets"
+  ],
+  "keywords": [
+    "parallax",
+    "sidescroller",
+    "canvas",
+    "2.5d",
+    "background",
+    "game",
+    "environment"
+  ],
+  "license": "MIT",
+  "devDependencies": {}
+}

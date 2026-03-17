@@ -1,14 +1,16 @@
 // ============================================================
-// ScapeEngine.js – 2.5D sidescroller engine
+// ScapeEngine.js – 2.5D sidescroller engine (library version)
 //
-// Three layers:
-//   Sky      – gradient backdrop, static
-//   Backdrop – distant mountain ridges, slow parallax
-//   Stage    – true perspective space; objects placed in (x, y, z)
-//              and sized + positioned automatically from depth
+// Canvas-first: the caller supplies the <canvas> element.
+// No DOM queries, no global state. Multiple instances per page work.
 // ============================================================
 
 export class ScapeEngine {
+  /**
+   * @param {HTMLCanvasElement} canvas  Caller-supplied canvas element.
+   * @param {number} [W=960]
+   * @param {number} [H=540]
+   */
   constructor(canvas, W = 960, H = 540) {
     this.canvas = canvas;
     this.ctx    = canvas.getContext('2d');
@@ -22,33 +24,48 @@ export class ScapeEngine {
     this.cameraSpeed = 80; // world-units / second
 
     // ── Perspective ──────────────────────────────────────────
-    // Objects at z = focalLength appear at their reference size.
     this.focalLength = 300;
-    // viewAngle: camera pitch in degrees.
-    //   0° = level (horizon at screen centre)
-    //  +ve = tilt down → more ground visible
-    //  -ve = tilt up   → more sky visible
-    // Drives horizonY; use setViewAngle() rather than setting horizonY directly.
-    this.viewAngle = 20;
-    this.horizonY  = this._horizonY(H, 20);
-    this.zNear     = 20;
-    this.zFar      = 2200;
+    this.viewAngle   = 20;
+    this.horizonY    = this._calcHorizonY(H, 20);
+    this.zNear       = 20;
+    this.zFar        = 2200;
 
     // ── Layers ───────────────────────────────────────────────
-    this.sky      = null;   // Sky instance
-    this.backdrop = null;   // Backdrop instance
-    this.stage    = null;   // Stage instance
+    this.sky      = null;
+    this.backdrop = null;
+    this.stage    = null;
 
     // ── Post-effects ─────────────────────────────────────────
     this.fog = { enabled: false, color: [180, 200, 180], maxAlpha: 0.88 };
     this.dof = { enabled: false, focusZ: 300, strength: 0.015 };
 
-    this._running  = false;
-    this._lastTime = 0;
-    this._raf      = null;
+    this._running   = false;
+    this._lastTime  = 0;
+    this._raf       = null;
+    this._listeners = {};
   }
 
-  // ── Public API ──────────────────────────────────────────────
+  // ── Event emitter ──────────────────────────────────────────
+
+  /** @param {'tick'|'resize'} event @param {Function} fn */
+  on(event, fn) {
+    (this._listeners[event] ??= []).push(fn);
+    return this;
+  }
+
+  /** @param {'tick'|'resize'} event @param {Function} fn */
+  off(event, fn) {
+    if (this._listeners[event]) {
+      this._listeners[event] = this._listeners[event].filter(f => f !== fn);
+    }
+    return this;
+  }
+
+  _emit(event, ...args) {
+    for (const fn of this._listeners[event] ?? []) fn(...args);
+  }
+
+  // ── Lifecycle ──────────────────────────────────────────────
 
   start() {
     this._running  = true;
@@ -59,27 +76,58 @@ export class ScapeEngine {
 
   stop() {
     this._running = false;
-    if (this._raf) cancelAnimationFrame(this._raf);
+    if (this._raf) { cancelAnimationFrame(this._raf); this._raf = null; }
+  }
+
+  /** Stop animation and release all layer references. */
+  destroy() {
+    this.stop();
+    this._listeners = {};
+    this.sky = this.backdrop = this.stage = null;
+  }
+
+  // ── Setters ────────────────────────────────────────────────
+
+  setCameraSpeed(v) { this.cameraSpeed = v; }
+
+  setViewAngle(deg) {
+    this.viewAngle = deg;
+    this.horizonY  = this._calcHorizonY(this.H, deg);
+  }
+
+  /** @param {{ enabled?: boolean, density?: number, color?: number[] }} opts */
+  setFog({ enabled, density, color } = {}) {
+    if (enabled  != null) this.fog.enabled  = enabled;
+    if (density  != null) this.fog.maxAlpha = density;
+    if (color    != null) this.fog.color    = color;
+  }
+
+  /** @param {{ enabled?: boolean, focusZ?: number, strength?: number }} opts */
+  setDOF({ enabled, focusZ, strength } = {}) {
+    if (enabled  != null) this.dof.enabled  = enabled;
+    if (focusZ   != null) this.dof.focusZ   = focusZ;
+    if (strength != null) this.dof.strength = strength;
+  }
+
+  resize(W, H) {
+    this.W = W;
+    this.H = H;
+    this.canvas.width  = W;
+    this.canvas.height = H;
+    this.horizonY = this._calcHorizonY(H, this.viewAngle);
+    this._emit('resize');
   }
 
   resetScroll(x = 0) { this.cameraX = x; }
 
-  /** Set camera pitch in degrees and recompute horizonY. */
-  setViewAngle(deg) {
-    this.viewAngle = deg;
-    this.horizonY  = this._horizonY(this.H, deg);
-  }
-
-  /** Camera height above the ground (derived from horizonY). */
+  /** Camera height above the ground plane (derived from horizonY). */
   get eyeHeight() { return this.H - this.horizonY; }
 
   /**
    * Project a world-space point to screen-space.
-   *
    *   x – horizontal  (0 = centre lane)
    *   y – height above ground (0 = on ground, positive = up)
-   *   z – depth into screen (zNear = close, zFar = distant)
-   *
+   *   z – depth (zNear = close, zFar = distant)
    * Returns { x, y, scale }
    */
   project(worldX, worldY, worldZ) {
@@ -94,7 +142,7 @@ export class ScapeEngine {
 
   // ── Private ────────────────────────────────────────────────
 
-  _horizonY(H, angleDeg) {
+  _calcHorizonY(H, angleDeg) {
     return H * (0.5 + angleDeg / 120);
   }
 
@@ -103,6 +151,7 @@ export class ScapeEngine {
     this._lastTime = now;
     this.cameraX  += this.cameraSpeed * dt;
     this._render();
+    this._emit('tick', dt);
     if (this._running) this._raf = requestAnimationFrame(t => this._tick(t));
   }
 
@@ -110,18 +159,10 @@ export class ScapeEngine {
     const { ctx, W, H, fog, horizonY } = this;
     ctx.clearRect(0, 0, W, H);
 
-    // 1. Sky
     if (this.sky)      this.sky.render(ctx, W, H);
-
-    // 2. Backdrop (distant ridges above the ground line)
     if (this.backdrop) this.backdrop.render(ctx, W, H, this.cameraX, horizonY);
-
-    // 3. Stage (perspective ground + world objects, back → front)
     if (this.stage)    this.stage.render(ctx, W, H, this);
 
-    // 4. Atmospheric fog – full-canvas gradient:
-    //    ground: clear at bottom → dense at horizon
-    //    sky:    dense at horizon → faint haze at top
     if (fog.enabled) {
       const [r, g, b] = fog.color;
       const horizonStop = (H - horizonY) / H;
