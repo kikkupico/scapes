@@ -23,7 +23,8 @@
   ],
   "license": "MIT",
   "scripts": {
-    "scapes": "node scripts/generate-scape.js"
+    "scapes": "node scripts/generate-scape.js",
+    "scapes:upgrade": "node scripts/upgrade-scape.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

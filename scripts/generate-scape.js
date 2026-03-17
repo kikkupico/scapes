@@ -2,19 +2,16 @@
 // ============================================================
 // generate-scape.js
 //
-// CLI pipeline: brief JSON → Gemini sprite sheet → chroma-key
-// extraction → ScapeDefinition JSON + individual PNGs.
+// CLI pipeline: brief JSON → read SVG sprites from assets/ →
+// ScapeDefinition JSON with explicit object placements.
+//
+// SVGs are created beforehand by the /scapes agent skill.
+// Use upgrade-scape.js to upgrade SVGs to Gemini-generated PNGs.
 //
 // Usage:
 //   node scripts/generate-scape.js '<brief-json>'
-//
-// Environment:
-//   GEMINI_API_KEY   required
-//   GEMINI_MODEL     optional, default: nano-banana-pro-preview
 // ============================================================
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import sharp from 'sharp';
 import fs   from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,83 +23,66 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 async function main() {
   const brief = JSON.parse(process.argv[2] ?? '{}');
 
-  if (!brief.name)               throw new Error('brief.name is required');
-  if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY env var is not set');
+  if (!brief.name) throw new Error('brief.name is required');
 
   const outDir    = path.join(ROOT, 'generated', brief.name);
   const assetsDir = path.join(outDir, 'assets');
   fs.mkdirSync(assetsDir, { recursive: true });
 
-  const props   = brief.props ?? [];
+  const props = brief.props ?? [];
 
-  // ── Step 1: Generate sprite sheet ────────────────────────
-  log('Calling Gemini for sprite sheet…');
-  const sheetBuffer = await generateSpriteSheet(brief);
-  const sheetPath   = path.join(assetsDir, 'sheet.png');
-  fs.writeFileSync(sheetPath, sheetBuffer);
-  log(`Sprite sheet saved (${sheetBuffer.length} bytes)`);
-
-  // ── Step 2: Detect sprite regions ────────────────────────
-  log('Detecting sprite regions…');
-  const regions = await findSpriteRegions(sheetBuffer);
-  log(`Found ${regions.length} sprite region(s)`);
-
-  // ── Step 3: Extract sprites (with per-prop fallback) ─────
-  log('Extracting sprites and removing backgrounds…');
+  // ── Read SVGs from assets dir ──────────────────────────────
+  log('Reading SVG sprites from assets/');
   const sprites = [];
-
-  const enoughRegions = regions.length >= Math.ceil(props.length / 2);
-
-  if (enoughRegions) {
-    // Happy path: cut regions out of the sheet
-    for (let i = 0; i < regions.length; i++) {
-      const label = props[i] ? slugify(props[i]) : `prop-${i}`;
-      const file    = `${label}.png`;
-      const outPath = path.join(assetsDir, file);
-      const meta    = await extractSprite(sheetBuffer, regions[i], outPath);
-      sprites.push({ name: label, file, ...meta, propLabel: props[i] ?? label });
-      log(`  ✓ ${file}  (${meta.width}×${meta.height})`);
+  for (const prop of props) {
+    // props can be strings (legacy) or objects { name, worldHeight, placement }
+    const propName = typeof prop === 'string' ? prop : prop.name;
+    const label = slugify(propName);
+    const file  = `${label}.svg`;
+    const svgPath = path.join(assetsDir, file);
+    if (!fs.existsSync(svgPath)) {
+      log(`  ⚠ Missing: ${file} — skip`);
+      continue;
     }
-  } else {
-    // Fallback: generate each prop individually
-    log(`Sheet yielded ${regions.length} region(s) for ${props.length} props — switching to per-prop generation`);
-    for (let i = 0; i < props.length; i++) {
-      const label = slugify(props[i]);
-      const file    = `${label}.png`;
-      const outPath = path.join(assetsDir, file);
-      log(`  Generating prop ${i + 1}/${props.length}: ${props[i]}`);
-      const propBuffer = await generateSingleProp(props[i], brief);
-      const propRegions = await findSpriteRegions(propBuffer);
-      if (propRegions.length > 0) {
-        const meta = await extractSprite(propBuffer, propRegions[0], outPath);
-        sprites.push({ name: label, file, ...meta, propLabel: props[i] });
-        log(`    ✓ ${file}  (${meta.width}×${meta.height})`);
-      } else {
-        // No green-screen background — save the full image as-is
-        fs.writeFileSync(outPath, propBuffer);
-        const propMeta = await sharp(propBuffer).metadata();
-        sprites.push({ name: label, file, width: propMeta.width, height: propMeta.height,
-          aspectRatio: propMeta.width / propMeta.height, propLabel: props[i] });
-        log(`    ✓ ${file}  (no green-screen, saved full image)`);
-      }
-    }
+    const svgText = fs.readFileSync(svgPath, 'utf-8');
+    const dims = parseSvgDimensions(svgText);
+    sprites.push({
+      name: label, file,
+      width: dims.width, height: dims.height,
+      aspectRatio: dims.width / dims.height,
+      propLabel: propName,
+      // Agent-specified world dimensions and placement
+      worldHeight: typeof prop === 'object' ? prop.worldHeight : undefined,
+      placement:   typeof prop === 'object' ? prop.placement   : undefined,
+    });
+    log(`  ✓ ${file}  (${dims.width}×${dims.height})`);
   }
 
-  // ── Step 4: Assemble ScapeDefinition ─────────────────────
+  if (sprites.length === 0) {
+    throw new Error('No SVG sprites found in assets/. Create SVG files first.');
+  }
+
+  // ── Assemble ScapeDefinition ───────────────────────────────
   log('Assembling scape definition…');
   const definition = buildDefinition(brief, sprites);
   const defPath    = path.join(outDir, 'definition.json');
   fs.writeFileSync(defPath, JSON.stringify(definition, null, 2));
 
-  // ── Done ─────────────────────────────────────────────────
+  // ── Save brief for upgrade-scape.js ────────────────────────
+  const briefPath = path.join(outDir, 'brief.json');
+  fs.writeFileSync(briefPath, JSON.stringify(brief, null, 2));
+
   log('');
   log(`Done!  generated/${brief.name}/`);
   log(`  definition.json`);
-  log(`  assets/sheet.png`);
+  log(`  brief.json`);
   sprites.forEach(s => log(`  assets/${s.file}`));
   log('');
   log(`Load it in the demo:`);
   log(`  applyPreset('./generated/${brief.name}/definition.json')`);
+  log('');
+  log(`To upgrade to AI-generated images:`);
+  log(`  node scripts/upgrade-scape.js ${brief.name}`);
 }
 
 main().catch(err => {
@@ -110,222 +90,17 @@ main().catch(err => {
   process.exit(1);
 });
 
-// ── Gemini sprite sheet generation ───────────────────────────
+// ── SVG dimension parser ─────────────────────────────────────
 
-async function generateSpriteSheet(brief) {
-  const model = process.env.GEMINI_MODEL ?? 'nano-banana-pro-preview';
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const gen   = genAI.getGenerativeModel({ model });
+function parseSvgDimensions(svgText) {
+  const wMatch = svgText.match(/width="(\d+(?:\.\d+)?)"/);
+  const hMatch = svgText.match(/height="(\d+(?:\.\d+)?)"/);
+  if (wMatch && hMatch) return { width: +wMatch[1], height: +hMatch[1] };
 
-  const prompt = buildSheetPrompt(brief);
+  const vbMatch = svgText.match(/viewBox="[\d.]+ [\d.]+ ([\d.]+) ([\d.]+)"/);
+  if (vbMatch) return { width: +vbMatch[1], height: +vbMatch[2] };
 
-  const result = await gen.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },
-  });
-
-  const parts     = result.response.candidates?.[0]?.content?.parts ?? [];
-  const imagePart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-
-  if (!imagePart) {
-    const text = parts.find(p => p.text)?.text ?? '(no text)';
-    throw new Error(`Gemini did not return an image. Model said: ${text.slice(0, 200)}`);
-  }
-
-  // Convert to PNG via sharp so we always have a consistent format for processing
-  const raw = Buffer.from(imagePart.inlineData.data, 'base64');
-  return sharp(raw).png().toBuffer();
-}
-
-function buildSheetPrompt(brief) {
-  const { props = [], mood = 'neutral', style = 'flat illustration', palette = [] } = brief;
-
-  // Arrange props in rows of 3
-  const rows = [];
-  for (let i = 0; i < props.length; i += 3) {
-    rows.push(props.slice(i, i + 3));
-  }
-  const rowDesc = rows
-    .map((row, i) => `Row ${i + 1}: ${row.map(p => `[${p}]`).join('  ')}`)
-    .join('\n');
-
-  const paletteDesc = palette.length
-    ? `Color palette: ${palette.join(', ')}.`
-    : '';
-
-  return `Create a 2D game sprite sheet image.
-
-BACKGROUND: Fill the ENTIRE image with pure bright green, exactly RGB(0, 255, 0) — this is critical for automated processing. There must be NO other green in the image.
-
-SPRITES: Draw the following props as side-view 2D illustrations. Arrange them in a grid with at least 40px of pure green space between every sprite:
-
-${rowDesc}
-
-STYLE:
-- ${style}, minimal shading, clean silhouettes
-- Side-view profile suitable for a 2.5D parallax scroller
-- Mood: ${mood}
-- Each prop must be fully self-contained — no overlapping with neighbours
-- Consistent scale: tallest prop ≈ 40% of image height
-- Lighting from upper-left
-${paletteDesc}
-
-IMPORTANT: The background between and around ALL sprites must remain pure green RGB(0,255,0). Do not add any shadows, ground planes, or decorative borders.`;
-}
-
-// ── Per-prop generation (fallback) ───────────────────────────
-
-async function generateSingleProp(propDescription, brief) {
-  const model = process.env.GEMINI_MODEL ?? 'nano-banana-pro-preview';
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const gen   = genAI.getGenerativeModel({ model });
-
-  const { style = 'flat illustration', palette = [], mood = '' } = brief;
-  const paletteDesc = palette.length ? `Color palette: ${palette.join(', ')}.` : '';
-
-  const prompt = `Create a single 2D game sprite image.
-
-BACKGROUND: Fill the ENTIRE image with pure bright green, exactly RGB(0, 255, 0). No other green allowed.
-
-SPRITE: Draw only this one prop, centered in the image:
-"${propDescription}"
-
-STYLE:
-- ${style}, side-view profile
-- Mood: ${mood}
-- The prop should occupy about 60–70% of the image height
-- Self-contained, no ground plane, no shadows outside the prop
-- Clean silhouette with transparent-ready edges
-${paletteDesc}
-
-CRITICAL: Background must remain pure RGB(0,255,0) everywhere outside the sprite.`;
-
-  const result = await gen.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },
-  });
-
-  const parts     = result.response.candidates?.[0]?.content?.parts ?? [];
-  const imagePart = parts.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-  if (!imagePart) {
-    throw new Error(`Gemini returned no image for prop: ${propDescription}`);
-  }
-
-  const raw = Buffer.from(imagePart.inlineData.data, 'base64');
-  return sharp(raw).png().toBuffer();
-}
-
-// ── Sprite region detection (bounding-box projection) ────────
-
-async function findSpriteRegions(sheetBuffer) {
-  const { data, info } = await sharp(sheetBuffer)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-
-  const { width, height } = info;
-
-  // Build foreground mask: true = not green-screen
-  const fg = new Uint8Array(width * height);
-  for (let i = 0; i < width * height; i++) {
-    const r = data[i * 4];
-    const g = data[i * 4 + 1];
-    const b = data[i * 4 + 2];
-    fg[i] = isGreenScreen(r, g, b) ? 0 : 1;
-  }
-
-  // Column projection: find runs of columns that contain any foreground pixels
-  const colHasFg = new Uint8Array(width);
-  for (let x = 0; x < width; x++) {
-    for (let y = 0; y < height; y++) {
-      if (fg[y * width + x]) { colHasFg[x] = 1; break; }
-    }
-  }
-
-  // Collect contiguous column runs (gap tolerance: merge runs < 8px apart)
-  const GAP = 8;
-  const colRuns = [];
-  let runStart = -1;
-  for (let x = 0; x <= width; x++) {
-    if (runStart === -1 && x < width && colHasFg[x]) {
-      runStart = x;
-    } else if (runStart !== -1) {
-      // Look ahead for a gap
-      if (x === width || (!colHasFg[x] && !colRuns.length && true)) {
-        // Check if next run starts soon (gap tolerance)
-        let gapLen = 0;
-        let xCheck = x;
-        while (xCheck < width && !colHasFg[xCheck] && gapLen <= GAP) { xCheck++; gapLen++; }
-        if (xCheck >= width || gapLen > GAP) {
-          colRuns.push({ start: runStart, end: x - 1 });
-          runStart = -1;
-        }
-        // else: continue the run through the small gap
-      }
-    }
-  }
-  if (runStart !== -1) colRuns.push({ start: runStart, end: width - 1 });
-
-  // For each column run find the tight Y bounding box
-  const MARGIN = 3;
-  const regions = [];
-  for (const { start, end } of colRuns) {
-    let minY = height, maxY = 0;
-    for (let x = start; x <= end; x++) {
-      for (let y = 0; y < height; y++) {
-        if (fg[y * width + x]) { minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
-      }
-    }
-    if (maxY < minY) continue;
-    regions.push({
-      x: Math.max(0, start - MARGIN),
-      y: Math.max(0, minY  - MARGIN),
-      w: Math.min(width  - (start - MARGIN), end - start + 1 + MARGIN * 2),
-      h: Math.min(height - (minY  - MARGIN), maxY - minY  + 1 + MARGIN * 2),
-    });
-  }
-
-  return regions;
-}
-
-// ── Chroma-key extraction ────────────────────────────────────
-
-async function extractSprite(sheetBuffer, region, outputPath) {
-  const meta = await sharp(sheetBuffer).metadata();
-  const left   = Math.max(0, region.x);
-  const top    = Math.max(0, region.y);
-  const width  = Math.min(region.w, meta.width  - left);
-  const height = Math.min(region.h, meta.height - top);
-  if (width < 1 || height < 1) throw new Error(`Invalid region: ${JSON.stringify(region)}`);
-
-  const { data, info } = await sharp(sheetBuffer)
-    .extract({ left, top, width, height })
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-
-  const out = Buffer.alloc(info.width * info.height * 4);
-
-  for (let i = 0; i < info.width * info.height; i++) {
-    const r = data[i * 4];
-    const g = data[i * 4 + 1];
-    const b = data[i * 4 + 2];
-    out[i * 4]     = r;
-    out[i * 4 + 1] = g;
-    out[i * 4 + 2] = b;
-    out[i * 4 + 3] = isGreenScreen(r, g, b) ? 0 : 255;
-  }
-
-  await sharp(out, { raw: { width: info.width, height: info.height, channels: 4 } })
-    .png()
-    .toFile(outputPath);
-
-  return { width: info.width, height: info.height, aspectRatio: info.width / info.height };
-}
-
-// Tolerant green-screen check (handles JPEG compression artifacts)
-function isGreenScreen(r, g, b) {
-  return g > 150 && g > r * 1.4 && g > b * 1.4 && r < 120 && b < 120;
+  return { width: 60, height: 60 };
 }
 
 // ── ScapeDefinition assembly ─────────────────────────────────
@@ -335,65 +110,108 @@ function buildDefinition(brief, sprites) {
 
   const scene = assembleScene(theme, timeOfDay, brief.palette);
 
-  // Categorise sprites into tall vs short using aspect ratio + semantic label
-  const densityValues = { sparse: 0.08, medium: 0.14, dense: 0.24 };
-  const baseDensity   = densityValues[density] ?? 0.14;
+  const densityScale = { sparse: 0.6, medium: 1.0, dense: 1.6 };
+  const dScale       = densityScale[density] ?? 1.0;
 
-  const tall  = [];
-  const short = [];
+  const Z_FAR   = [1100, 1000, 900];
+  const Z_MID   = [700, 650, 600, 550];
+  const Z_NEAR  = [420, 380, 350, 330, 310, 290];
 
-  const TALL_KEYWORDS  = ['tree','pine','oak','birch','bamboo','willow','palm','building',
-                           'tower','castle','pagoda','lighthouse','cliff','mountain','spire'];
-  const SHORT_KEYWORDS = ['bush','rock','grass','flower','mushroom','lantern','sign',
-                           'fence','post','log','pebble','stump','lily','lotus'];
+  const tileWidth = 1200;
+  const objects   = [];
+  let farIdx = 0, midIdx = 0, nearIdx = 0;
+
+  // Simple seeded PRNG for placement jitter
+  let rngState = (seed ?? 42) * 2654435761 >>> 0;
+  function rng() {
+    rngState = (rngState * 1664525 + 1013904223) >>> 0;
+    return (rngState >>> 0) / 4294967296;
+  }
 
   for (const sp of sprites) {
-    const label = (sp.propLabel ?? sp.name).toLowerCase();
-    const isTallByLabel  = TALL_KEYWORDS.some(k => label.includes(k));
-    const isShortByLabel = SHORT_KEYWORDS.some(k => label.includes(k));
-    // Tall sprites are narrow (low w/h ratio); short sprites are wide
-    const isTallByShape  = sp.aspectRatio < 0.75;
-    const isTall = isTallByLabel || (!isShortByLabel && isTallByShape);
+    // World height: prefer agent-specified, fall back to 100
+    const worldH = sp.worldHeight ?? 100;
+    const worldW = Math.max(10, Math.round(worldH * sp.aspectRatio));
+    // Placement: "background" (far+mid+near z), "midground", or "foreground"
+    const placement = sp.placement ?? (worldH >= 100 ? 'background' : 'foreground');
 
-    if (isTall) {
-      // Stagger z-depth across tall layers: far → mid → near
-      const zLevels = [1000, 650, 400];
-      const z = zLevels[tall.length % zLevels.length];
-      const kind = inferKind(label, 'tall');
-      tall.push({
-        sprites:    [sp.name],
-        kind,
-        z,
-        width:      70,
-        height:     280,
-        density:    baseDensity,
-        color:      pickColor(brief.palette, tall.length, '#2a4030'),
-        ...(kind !== 'building' ? { trunkColor: '#2a1505' } : {}),
-      });
+    if (placement === 'background') {
+      // Place across 3 z-levels
+      const zLevels = [
+        Z_FAR[farIdx % Z_FAR.length],
+        Z_MID[midIdx % Z_MID.length],
+        Z_NEAR[nearIdx % Z_NEAR.length],
+      ];
+      farIdx++; midIdx++; nearIdx++;
+
+      for (const z of zLevels) {
+        const spacing = worldW * 2.5;
+        const count   = Math.max(1, Math.round((tileWidth / spacing) * dScale));
+        const step    = tileWidth / count;
+        for (let i = 0; i < count; i++) {
+          const x = step * i + rng() * step * 0.6;
+          const scale = 0.85 + rng() * 0.3;
+          objects.push({
+            sprite: sp.name,
+            x: Math.round(x), y: 0, z,
+            width:  Math.round(worldW * scale),
+            height: Math.round(worldH * scale),
+          });
+        }
+      }
+    } else if (placement === 'midground') {
+      // Place at 1-2 mid z-levels
+      const zLevels = [
+        Z_MID[midIdx % Z_MID.length],
+        Z_NEAR[nearIdx % Z_NEAR.length],
+      ];
+      midIdx++; nearIdx++;
+
+      for (const z of zLevels) {
+        const spacing = worldW * 2.5;
+        const count   = Math.max(1, Math.round((tileWidth / spacing) * dScale));
+        const step    = tileWidth / count;
+        for (let i = 0; i < count; i++) {
+          const x = step * i + rng() * step * 0.6;
+          const scale = 0.85 + rng() * 0.3;
+          objects.push({
+            sprite: sp.name,
+            x: Math.round(x), y: 0, z,
+            width:  Math.round(worldW * scale),
+            height: Math.round(worldH * scale),
+          });
+        }
+      }
     } else {
-      const z = 300 + short.length * 20;
-      short.push({
-        sprites:  [sp.name],
-        kind:     inferKind(label, 'short'),
-        z,
-        width:    55,
-        height:   35,
-        density:  baseDensity * 1.6,
-        color:    pickColor(brief.palette, short.length + 3, '#2a3020'),
-      });
+      // foreground — scatter at near-z
+      const z     = Z_NEAR[nearIdx % Z_NEAR.length];
+      nearIdx++;
+      const count = Math.max(3, Math.round(8 * dScale));
+      const step  = tileWidth / count;
+      for (let i = 0; i < count; i++) {
+        const x     = step * i + rng() * step * 0.8;
+        const scale = 0.7 + rng() * 0.6;
+        objects.push({
+          sprite: sp.name,
+          x: Math.round(x), y: 0, z,
+          width:  Math.round(worldW * scale),
+          height: Math.round(worldH * scale),
+        });
+      }
     }
   }
 
   return {
-    version:  1,
+    version:   2,
     name,
-    seed:     seed ?? Math.floor(Math.random() * 9999),
+    seed:      seed ?? Math.floor(Math.random() * 9999),
+    tileWidth,
     ...scene,
     sprites: {
       individual: sprites.map(s => ({ name: s.name, src: `assets/${s.file}` })),
     },
-    objects: { tall, short },
-    camera:  { speed: 80, viewAngle: 20 },
+    objects,
+    camera: { speed: 80, viewAngle: 20 },
   };
 }
 
@@ -445,33 +263,12 @@ function assembleScene(theme, timeOfDay, palette = []) {
   const ground    = GROUND[theme]   ?? GROUND.generic;
   const ridges    = RIDGES[theme]   ?? RIDGES.generic;
 
-  // If the user supplied a palette, tint the ground near-colour
-  if (palette.length >= 1) ground.nearColor = palette[palette.length - 1];
-  if (palette.length >= 2) ground.farColor  = palette[palette.length - 2];
-
   return {
     sky:      { gradient: skyColors.map((color, i) => ({ stop: i / (skyColors.length - 1), color })) },
     fog:      { enabled: false, density: 0.88, color: fogColor },
     backdrop: { ridges },
     ground,
   };
-}
-
-function inferKind(label, group) {
-  if (group === 'tall') {
-    if (/building|tower|castle|skyscraper|house|chalet|barn/.test(label)) return 'building';
-    if (/pine|fir|spruce|cedar|conifer|cypress/.test(label))              return 'conifer';
-    return 'deciduous';
-  }
-  if (/rock|stone|boulder|pebble/.test(label)) return 'rock';
-  if (/grass|reed|wheat|hay/.test(label))      return 'grass';
-  if (/streetlight|lamp|lantern|torch/.test(label)) return 'streetlight';
-  return 'bush';
-}
-
-function pickColor(palette, idx, fallback) {
-  if (!palette?.length) return fallback;
-  return palette[idx % palette.length];
 }
 
 // ── Utilities ────────────────────────────────────────────────

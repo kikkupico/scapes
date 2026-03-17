@@ -104,10 +104,9 @@ export async function loadScape(canvas, definition, options = {}) {
   // 5. Stage
   if (definition.ground) {
     engine.stage = new Stage({
-      ground:     definition.ground,
-      objects:    [],
-      procedural: definition.objects ?? null,
-      seed:       definition.seed ?? 1,
+      ground:    definition.ground,
+      objects:   definition.objects ?? [],
+      tileWidth: definition.tileWidth ?? 0,
       sprites,
     });
     engine.stage.precompute(engine);

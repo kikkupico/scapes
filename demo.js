@@ -3,10 +3,11 @@ import { ScapeEngine, Sky, Backdrop, Stage, loadScape } from './src/index.js';
 // ── Preset loading ────────────────────────────────────────────
 
 const PRESET_URLS = {
-  noon:             './presets/noon.json',
-  lantern:          './presets/lantern-lake.json',
-  city:             './presets/city.json',
+  noon:             './presets/noon/definition.json',
+  lantern:          './presets/lantern-lake/definition.json',
+  city:             './presets/city/definition.json',
   'alpine-village': './generated/alpine-village/definition.json',
+  'desert-market':  './generated/desert-market/definition.json',
 };
 
 // ── Engine setup ──────────────────────────────────────────────

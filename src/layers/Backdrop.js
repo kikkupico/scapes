@@ -2,7 +2,16 @@
 // Backdrop – distant mountain ridges with slow parallax
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-import { fbm } from '../procedural.js';
+/** Fractional Brownian Motion – deterministic sine-based terrain. */
+function fbm(x, seed, octaves = 4, baseFreq = 0.0008) {
+  let v = 0, a = 0.5, f = baseFreq;
+  for (let i = 0; i < octaves; i++) {
+    v += Math.sin(x * f + seed + i * 3.713) * a;
+    v += Math.sin(x * f * 1.31 + seed * 1.73 + i * 2.29) * a * 0.45;
+    a *= 0.52; f *= 2.07;
+  }
+  return v;
+}
 
 /**
  * @param {Array} ridges  Each ridge:
@@ -21,8 +30,6 @@ export class Backdrop {
   }
 
   _drawRidge(ctx, W, H, cameraX, horizonY, { baseY, amplitude, color, snowColor, snowLine = 0.38, parallaxFactor, seed }) {
-    // baseY is a fraction of horizonY (not H), so ridges track the horizon
-    // as the view angle changes. Authored at viewAngle=20°.
     const by   = baseY * horizonY;
     const amp  = amplitude * H;
     const ox   = cameraX * parallaxFactor;

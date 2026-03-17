@@ -1,5 +1,5 @@
 ---
-description: Generate a 2.5D parallax scrolling scape with AI-generated sprites
+description: Generate a 2.5D parallax scrolling scape with SVG sprites
 ---
 
 You are the Scapes generator. The user wants to create a parallax scrolling background environment.
@@ -15,15 +15,48 @@ Ask focused questions — only for things not already answered in the request ab
 1. **Time of day / atmosphere** — dawn, noon, dusk, night, or overcast?
 2. **Specific props** — list 5–7 props you'd generate if unspecified, and ask if they want changes. Good props are specific: "snow-capped pine tree" not "tree".
 3. **Density** — sparse, medium, or dense?
-4. **Style** — flat illustration, watercolor, painterly, or pixel art?
+4. **Style** — flat illustration, watercolor, painterly, or pixel art? (this also guides the SVGs you'll create and will be used if the user later upgrades to AI images with `/scapes upgrade`)
 
 If the request already answers some of these, skip those questions and go straight to generation.
 
 ---
 
-### Step 2 — Generate
+### Step 2 — Create SVG sprites
 
-Once you have enough information, construct a brief JSON and run the pipeline script.
+**Step 2a — Create the output directory:**
+```bash
+mkdir -p generated/<name>/assets
+```
+
+**Step 2b — Generate SVG files:**
+For each prop, write an SVG file to `generated/<name>/assets/<prop-slug>.svg` using the Write tool.
+
+SVG guidelines:
+- Include `width` and `height` attributes on the root `<svg>` element (required for image loading)
+- Include a `viewBox` matching the dimensions
+- Side-view profile suitable for a 2.5D parallax scroller
+- Use the palette colours specified
+- Keep SVGs clean: shapes, paths, gradients. No embedded raster data.
+- Taller props (trees, buildings) should have tall aspect ratios (e.g. 60×280)
+- Shorter props (rocks, bushes) should have squatter aspect ratios (e.g. 40×20)
+- Match the mood and style requested — watercolor can use soft gradients and irregular edges, pixel art should use crisp rectangles, etc.
+- Make distinct silhouettes — vary shapes so the scene looks natural
+
+Example conifer SVG:
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" width="60" height="280" viewBox="0 0 60 280">
+  <polygon points="30,0 47,82 13,82" fill="#2a5030"/>
+  <polygon points="30,51 54,133 6,133" fill="#2a5030"/>
+  <polygon points="30,103 60,185 0,185" fill="#2a5030"/>
+  <rect x="24.6" y="218" width="10.8" height="62" fill="#1a2010"/>
+</svg>
+```
+
+---
+
+### Step 3 — Assemble the scape
+
+Construct a brief JSON and run the pipeline script. The script reads the SVGs, parses their dimensions, generates object placements, and creates the definition.
 
 **Brief JSON shape:**
 ```json
@@ -33,8 +66,8 @@ Once you have enough information, construct a brief JSON and run the pipeline sc
   "timeOfDay": "dawn|noon|dusk|night|overcast",
   "mood": "one-sentence atmosphere description",
   "props": [
-    "detailed prop 1 description",
-    "detailed prop 2 description"
+    { "name": "detailed prop 1 description", "worldHeight": 220, "placement": "background" },
+    { "name": "detailed prop 2 description", "worldHeight": 45, "placement": "foreground" }
   ],
   "density": "sparse|medium|dense",
   "style": "flat illustration|watercolor|painterly",
@@ -43,26 +76,22 @@ Once you have enough information, construct a brief JSON and run the pipeline sc
 }
 ```
 
-**Props guidance — be specific and visual:**
-- Good: `"snow-dusted alpine pine"`, `"crumbling stone watchtower"`, `"arched wooden bridge"`
-- Bad: `"tree"`, `"building"`, `"bridge"`
-- Aim for 2–4 tall props (trees, structures, anything taller than wide) and 2–4 short props (rocks, bushes, ground details). 6 total is ideal.
-- Vary the descriptions so Gemini draws distinct silhouettes.
-
-**Palette guidance:**
-- 4–5 colours that cover the main tones: sky/light highlight, mid tone, shadow, ground, accent.
-- Dawn example: `["#f0c080", "#d4956a", "#8ba4b8", "#4a6040", "#2a1a10"]`
+Each prop is an object with:
+- `name` — descriptive label, slugified to match SVG filename (e.g. `"snow-dusted alpine pine"` → `snow-dusted-alpine-pine.svg`)
+- `worldHeight` — height in world units. You decide this based on what the prop represents. Tall structures (towers, trees): 200–340. Medium buildings (houses, stalls): 100–180. Small objects (pots, baskets, lanterns): 30–60.
+- `placement` — where in the scene depth the prop appears:
+  - `"background"` — placed at far, mid, and near z-levels (good for large structures that define the skyline)
+  - `"midground"` — placed at mid and near z-levels (medium-sized props)
+  - `"foreground"` — scattered at near z only (small ground-level detail props)
 
 **Run the script:**
 ```bash
 node scripts/generate-scape.js '<brief-json-on-one-line>'
 ```
 
-Make sure the JSON is valid and on a single line when passing as a shell argument.
-
 ---
 
-### Step 3 — Load in the demo
+### Step 4 — Load in the demo
 
 After the script succeeds, update `demo.js` to make the new scape loadable. Add it to `PRESET_URLS`:
 
@@ -78,7 +107,32 @@ Then add a button in `index.html` inside the Scene Presets panel:
 <button data-preset="your-scape-name">Your Scape Name</button>
 ```
 
-Tell the user the scape is ready and how to switch to it in the demo.
+Tell the user the scape is ready. Mention they can upgrade to AI-generated images with `/scapes upgrade <name>` — this creates a separate HD version (`<name>-hd`) while preserving the original SVG scape.
+
+---
+
+## Props guidance — be specific and visual
+
+- Good names: `"snow-dusted alpine pine"`, `"crumbling stone watchtower"`, `"arched wooden bridge"`
+- Bad names: `"tree"`, `"building"`, `"bridge"`
+- Aim for 2–4 tall/background props and 2–4 short/foreground props. 6–8 total is ideal.
+- Vary the descriptions so sprites have distinct silhouettes.
+- You decide `worldHeight` and `placement` for each prop — match the SVG's aspect ratio to the worldHeight you choose. A 60×280 SVG with worldHeight 280 will look natural; worldHeight 50 would squish it.
+- Example props array:
+  ```json
+  [
+    { "name": "ornate market stall", "worldHeight": 220, "placement": "background" },
+    { "name": "sandstone minaret tower", "worldHeight": 320, "placement": "background" },
+    { "name": "domed clay hut", "worldHeight": 140, "placement": "midground" },
+    { "name": "clay pot stack", "worldHeight": 45, "placement": "foreground" },
+    { "name": "woven basket with spices", "worldHeight": 30, "placement": "foreground" }
+  ]
+  ```
+
+## Palette guidance
+
+- 4–5 colours: sky/light highlight, mid tone, shadow, ground, accent.
+- Dawn example: `["#f0c080", "#d4956a", "#8ba4b8", "#4a6040", "#2a1a10"]`
 
 ---
 
@@ -86,11 +140,9 @@ Tell the user the scape is ready and how to switch to it in the demo.
 
 | Problem | Fix |
 |---------|-----|
-| `GEMINI_API_KEY not set` | Ask user to set it: `export GEMINI_API_KEY=…` |
-| `No sprites detected` | The background wasn't green enough. Check `generated/<name>/assets/sheet.png` and re-run — generation is non-deterministic |
-| `Gemini did not return an image` | Model may not support image generation. Try setting `GEMINI_MODEL=gemini-2.0-flash-exp` |
-| Sprites look wrong | The kind/z/density are heuristic defaults. Edit `generated/<name>/definition.json` directly to tune them |
-| Fewer sprites than expected | Gemini may have merged some props. Re-run, or split into two generation calls and merge the definitions |
+| `No SVG sprites found` | SVG filenames must match slugified prop names |
+| Sprites look wrong | Edit `generated/<name>/definition.json` directly to tune positions/sizes |
+| Want better art | Run `/scapes upgrade <name>` to upgrade SVGs to AI-generated images |
 
 ---
 
@@ -110,7 +162,7 @@ Tell the user the scape is ready and how to switch to it in the demo.
 - `desert`: warm tan/ochre ridges and ground
 - `beach`: low ridges, sandy ground
 
-**Density → objects per zone**
-- `sparse`: ~0.08 (wide open, contemplative)
-- `medium`: ~0.14 (balanced)
-- `dense`: ~0.24 (busy, jungle-like)
+**Density → objects per tile**
+- `sparse`: wide open, contemplative
+- `medium`: balanced
+- `dense`: busy, jungle-like
