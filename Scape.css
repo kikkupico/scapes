@@ -1,15 +1,29 @@
 /* ============================================================
-   Scape.css – 2D Sidescroller Engine Demo Styles
+   Scape.css – Scapes Preview UI
    ============================================================ */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+:root {
+  --bg:          #08090e;
+  --surface:     #11131a;
+  --border:      #1e2230;
+  --border-hi:   #3a4a60;
+  --text:        #b0b8c4;
+  --text-dim:    #5a6270;
+  --text-bright: #d0d8e0;
+  --accent:      #4a90d0;
+  --accent-bg:   #142840;
+  --radius:      8px;
+}
+
 html, body {
   height: 100%;
-  background: #0a0a0f;
-  color: #ccc;
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   font-size: 14px;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* ── Layout ─────────────────────────────────────────────────── */
@@ -19,26 +33,47 @@ html, body {
   flex-direction: column;
   align-items: center;
   min-height: 100vh;
-  padding: 20px 16px 32px;
-  gap: 16px;
+  padding: 24px 16px 40px;
+  gap: 20px;
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+
+#header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  align-self: flex-start;
+  padding: 0 4px;
 }
 
 h1 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #8ab;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-bright);
+}
+
+.subtitle {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
 }
 
 /* ── Canvas wrapper ─────────────────────────────────────────── */
 
 #canvas-wrap {
-  width: min(100vw - 32px, 960px);
+  width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: 6px;
+  border-radius: var(--radius);
   overflow: hidden;
-  box-shadow: 0 0 40px rgba(0,0,0,0.8);
+  box-shadow:
+    0 2px 20px rgba(0, 0, 0, 0.5),
+    0 0 0 1px var(--border);
+  position: relative;
+  background: #000;
 }
 
 #canvas-wrap canvas {
@@ -47,19 +82,148 @@ h1 {
   display: block;
 }
 
-/* ── Control panel ──────────────────────────────────────────── */
+/* Floating scape name label */
+#scape-label {
+  position: absolute;
+  bottom: 12px;
+  left: 14px;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  pointer-events: none;
+  transition: opacity 0.4s;
+}
+
+/* ── Scape gallery ──────────────────────────────────────────── */
+
+#gallery {
+  width: 100%;
+}
+
+#gallery-items {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+#gallery-items::-webkit-scrollbar { height: 4px; }
+#gallery-items::-webkit-scrollbar-track { background: transparent; }
+#gallery-items::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.scape-card {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+  min-width: 140px;
+  user-select: none;
+}
+
+.scape-card:hover {
+  border-color: var(--border-hi);
+  background: #161a24;
+  transform: translateY(-1px);
+}
+
+.scape-card.active {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.scape-card .card-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-bright);
+  white-space: nowrap;
+}
+
+.scape-card.active .card-name {
+  color: #8ac4f0;
+}
+
+.scape-card .card-meta {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.scape-card .card-tag {
+  display: inline-block;
+  font-size: 0.62rem;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-dim);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.scape-card.active .card-tag {
+  background: rgba(74, 144, 208, 0.15);
+  color: #6aa8d8;
+}
+
+/* ── Controls drawer ───────────────────────────────────────── */
+
+#controls-drawer {
+  width: 100%;
+}
+
+#controls-drawer > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  padding: 8px 4px;
+  user-select: none;
+  list-style: none;
+}
+
+#controls-drawer > summary::-webkit-details-marker { display: none; }
+
+#controls-drawer > summary::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-right: 1.5px solid var(--text-dim);
+  border-bottom: 1.5px solid var(--text-dim);
+  transform: rotate(-45deg);
+  transition: transform 0.2s;
+}
+
+#controls-drawer[open] > summary::before {
+  transform: rotate(45deg);
+}
 
 #controls {
-  width: min(100vw - 32px, 960px);
+  width: 100%;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
+  padding-top: 8px;
 }
 
 .panel {
-  background: #12141a;
-  border: 1px solid #2a2e3a;
-  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
@@ -67,10 +231,10 @@ h1 {
 }
 
 .panel h3 {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #667;
+  color: var(--text-dim);
   margin-bottom: 2px;
 }
 
@@ -82,13 +246,13 @@ h1 {
 
 .row label {
   min-width: 90px;
-  color: #899;
-  font-size: 0.82rem;
+  color: var(--text-dim);
+  font-size: 0.8rem;
 }
 
 input[type=range] {
   flex: 1;
-  accent-color: #5a8fc0;
+  accent-color: var(--accent);
   height: 4px;
   cursor: pointer;
 }
@@ -96,36 +260,33 @@ input[type=range] {
 .val {
   min-width: 36px;
   text-align: right;
-  color: #aac;
+  color: var(--text);
   font-variant-numeric: tabular-nums;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
 }
 
 /* ── Buttons ────────────────────────────────────────────────── */
 
 .btn-row {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 button {
-  background: #1e2230;
-  border: 1px solid #34394a;
-  border-radius: 4px;
-  color: #aab;
-  padding: 6px 14px;
+  background: #181c28;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  padding: 5px 12px;
   cursor: pointer;
-  font-size: 0.82rem;
-  letter-spacing: 0.04em;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
   transition: background 0.15s, border-color 0.15s;
 }
 
-button:hover { background: #252a3a; border-color: #5a7a9a; }
-button.active { background: #1e3050; border-color: #5a8fc0; color: #9bf; }
-
-/* Preset buttons */
-button[data-preset] { text-transform: capitalize; }
+button:hover { background: #1e2438; border-color: var(--border-hi); }
+button.active { background: var(--accent-bg); border-color: var(--accent); color: #8ac4f0; }
 
 /* ── Toggle switch ──────────────────────────────────────────── */
 
@@ -139,11 +300,11 @@ button[data-preset] { text-transform: capitalize; }
 .toggle input { display: none; }
 
 .toggle .knob {
-  width: 36px;
+  width: 34px;
   height: 18px;
-  background: #2a2e3a;
+  background: var(--border);
   border-radius: 9px;
-  border: 1px solid #3a3e4a;
+  border: 1px solid #2a303c;
   position: relative;
   transition: background 0.2s;
 }
@@ -155,12 +316,12 @@ button[data-preset] { text-transform: capitalize; }
   top: 2px;
   width: 12px;
   height: 12px;
-  background: #667;
+  background: var(--text-dim);
   border-radius: 50%;
   transition: left 0.15s, background 0.15s;
 }
 
-.toggle input:checked + .knob { background: #1e3050; border-color: #5a8fc0; }
-.toggle input:checked + .knob::after { left: 20px; background: #5a8fc0; }
+.toggle input:checked + .knob { background: var(--accent-bg); border-color: var(--accent); }
+.toggle input:checked + .knob::after { left: 18px; background: var(--accent); }
 
-.toggle span { color: #899; font-size: 0.82rem; }
+.toggle span:last-child { color: var(--text-dim); font-size: 0.8rem; }

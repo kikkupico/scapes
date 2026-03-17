@@ -3,90 +3,95 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scapes – 2.5D Engine</title>
+  <title>Scapes</title>
   <link rel="stylesheet" href="./Scape.css" />
 </head>
 <body>
 <div id="app">
-  <h1>Scapes Engine</h1>
 
+  <!-- Header -->
+  <header id="header">
+    <h1>Scapes</h1>
+    <span class="subtitle">2.5D parallax engine</span>
+  </header>
+
+  <!-- Canvas -->
   <div id="canvas-wrap">
     <canvas id="scape"></canvas>
+    <div id="scape-label"></div>
   </div>
 
-  <div id="controls">
+  <!-- Scape gallery -->
+  <nav id="gallery">
+    <div id="gallery-items"></div>
+  </nav>
 
-    <!-- Playback -->
-    <div class="panel">
-      <h3>Playback</h3>
-      <div class="btn-row">
-        <button id="btn-play" class="active">Pause</button>
+  <!-- Controls drawer -->
+  <details id="controls-drawer">
+    <summary>Controls</summary>
+    <div id="controls">
+
+      <!-- Playback -->
+      <div class="panel">
+        <h3>Playback</h3>
+        <div class="btn-row">
+          <button id="btn-play" class="active">Pause</button>
+        </div>
+        <div class="row">
+          <label>Camera speed</label>
+          <input type="range" id="sl-speed" min="0" max="300" step="5" value="80" />
+          <span class="val" id="vl-speed">80</span>
+        </div>
+        <div class="row">
+          <label>View angle</label>
+          <input type="range" id="sl-angle" min="-30" max="60" step="1" value="20" />
+          <span class="val" id="vl-angle">20°</span>
+        </div>
+        <div class="btn-row angle-row">
+          <button data-angle="-15" title="Look up at peaks">High</button>
+          <button data-angle="0"   title="Look into recession">Deep</button>
+          <button data-angle="25"  title="Panoramic level view" class="active">Level</button>
+        </div>
       </div>
-      <div class="row">
-        <label>Camera speed</label>
-        <input type="range" id="sl-speed" min="0" max="300" step="5" value="80" />
-        <span class="val" id="vl-speed">80</span>
+
+      <!-- Depth of Field -->
+      <div class="panel">
+        <h3>Depth of Field</h3>
+        <label class="toggle">
+          <input type="checkbox" id="cb-dof" />
+          <span class="knob"></span>
+          <span>Enabled</span>
+        </label>
+        <div class="row">
+          <label>Focus depth</label>
+          <input type="range" id="sl-dof-z" min="30" max="1500" step="10" value="300" />
+          <span class="val" id="vl-dof-z">300</span>
+        </div>
+        <div class="row">
+          <label>Strength</label>
+          <input type="range" id="sl-dof-str" min="0" max="0.05" step="0.001" value="0.015" />
+          <span class="val" id="vl-dof-str">0.015</span>
+        </div>
       </div>
-      <div class="row">
-        <label>View angle</label>
-        <input type="range" id="sl-angle" min="-30" max="60" step="1" value="20" />
-        <span class="val" id="vl-angle">20°</span>
+
+      <!-- Fog -->
+      <div class="panel">
+        <h3>Atmospheric Fog</h3>
+        <label class="toggle">
+          <input type="checkbox" id="cb-fog" />
+          <span class="knob"></span>
+          <span>Enabled</span>
+        </label>
+        <div class="row">
+          <label>Density</label>
+          <input type="range" id="sl-fog-den" min="0" max="1" step="0.01" value="0.88" />
+          <span class="val" id="vl-fog-den">0.88</span>
+        </div>
       </div>
-      <div class="btn-row">
-        <button data-angle="-15" title="Gaoyuan — look up at peaks">高遠</button>
-        <button data-angle="0"   title="Shenyuan — look into recession">深遠</button>
-        <button data-angle="25"  title="Pingyuan — panoramic level view" class="active">平遠</button>
-      </div>
+
     </div>
+  </details>
 
-    <!-- Depth of Field -->
-    <div class="panel">
-      <h3>Depth of Field</h3>
-      <label class="toggle">
-        <input type="checkbox" id="cb-dof" />
-        <span class="knob"></span>
-        <span>Enabled</span>
-      </label>
-      <div class="row">
-        <label>Focus depth</label>
-        <input type="range" id="sl-dof-z" min="30" max="1500" step="10" value="300" />
-        <span class="val" id="vl-dof-z">300</span>
-      </div>
-      <div class="row">
-        <label>Strength</label>
-        <input type="range" id="sl-dof-str" min="0" max="0.05" step="0.001" value="0.015" />
-        <span class="val" id="vl-dof-str">0.015</span>
-      </div>
-    </div>
-
-    <!-- Fog -->
-    <div class="panel">
-      <h3>Atmospheric Fog</h3>
-      <label class="toggle">
-        <input type="checkbox" id="cb-fog" />
-        <span class="knob"></span>
-        <span>Enabled</span>
-      </label>
-      <div class="row">
-        <label>Density</label>
-        <input type="range" id="sl-fog-den" min="0" max="1" step="0.01" value="0.88" />
-        <span class="val" id="vl-fog-den">0.88</span>
-      </div>
-    </div>
-
-    <!-- Presets -->
-    <div class="panel">
-      <h3>Scene Presets</h3>
-      <div class="btn-row">
-        <button data-preset="noon"    class="active">Noon</button>
-        <button data-preset="lantern"            >Lantern Lake</button>
-        <button data-preset="city"               >City</button>
-        <button data-preset="alpine-village"     >Alpine Village</button>
-        <button data-preset="desert-market"      >Desert Market</button>
-      </div>
-    </div>
-
-  </div>
 </div>
 
 <script type="module" src="./demo.js"></script>
