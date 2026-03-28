@@ -1,11 +1,10 @@
-import { ScapeEngine, Sky, Backdrop, Stage, loadScape } from './src/index.js';
+import { ScapeEngine, Sky, Stage, loadScape } from './src/index.js';
 
 // ── Scape registry ──────────────────────────────────────────
 
 const SCAPES = [
-  { id: 'desert-market',     name: 'Desert Market',      url: './generated/desert-market/definition.json',     tag: 'generated' },
-  { id: 'desert-market-hd',  name: 'Desert Market HD',   url: './generated/desert-market-hd/definition.json',  tag: 'generated' },
-  { id: 'coastal-village',   name: 'Coastal Village',    url: './generated/coastal-village/definition.json',   tag: 'generated' },
+  { id: 'clay-forest',    name: 'Clay Forest',    url: './generated/clay-forest/definition.json',    tag: 'generated' },
+  { id: 'clay-forest-hd', name: 'Clay Forest HD', url: './generated/clay-forest-hd/definition.json', tag: 'generated' },
 ];
 
 // ── Engine setup ────────────────────────────────────────────

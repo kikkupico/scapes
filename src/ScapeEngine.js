@@ -32,7 +32,6 @@ export class ScapeEngine {
 
     // ── Layers ───────────────────────────────────────────────
     this.sky      = null;
-    this.backdrop = null;
     this.stage    = null;
 
     // ── Post-effects ─────────────────────────────────────────
@@ -83,7 +82,7 @@ export class ScapeEngine {
   destroy() {
     this.stop();
     this._listeners = {};
-    this.sky = this.backdrop = this.stage = null;
+    this.sky = this.stage = null;
   }
 
   // ── Setters ────────────────────────────────────────────────
@@ -159,9 +158,8 @@ export class ScapeEngine {
     const { ctx, W, H, fog, horizonY } = this;
     ctx.clearRect(0, 0, W, H);
 
-    if (this.sky)      this.sky.render(ctx, W, H, this.cameraX);
-    if (this.backdrop) this.backdrop.render(ctx, W, H, this.cameraX, horizonY);
-    if (this.stage)    this.stage.render(ctx, W, H, this);
+    if (this.sky)   this.sky.render(ctx, W, H, this.cameraX);
+    if (this.stage) this.stage.render(ctx, W, H, this);
 
     if (fog.enabled) {
       const [r, g, b] = fog.color;

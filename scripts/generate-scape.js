@@ -135,7 +135,29 @@ function buildDefinition(brief, sprites) {
     // Placement: "background", "midground", "foreground", or "landmark" (single far instance)
     const placement = sp.placement ?? (worldH >= 100 ? 'background' : 'foreground');
 
-    if (placement === 'landmark') {
+    if (placement === 'sky') {
+      // Float objects in the sky — placed at far z-levels with y elevated above ground
+      const zLevels = [Z_FAR[farIdx % Z_FAR.length], Z_FAR[(farIdx + 1) % Z_FAR.length]];
+      farIdx++;
+      for (const z of zLevels) {
+        const spacing = worldW * 3;
+        const count   = Math.max(1, Math.round((tileWidth / spacing) * dScale));
+        const step    = tileWidth / count;
+        for (let i = 0; i < count; i++) {
+          const x     = step * i + rng() * step * 0.6;
+          const scale = 0.8 + rng() * 0.4;
+          // y: lift into sky — engine eyeHeight≈180, far-z scale≈0.27
+          // need worldY 400–1200 to land in the visible sky band above horizon
+          const skyY  = Math.round(400 + rng() * 800);
+          objects.push({
+            sprite: sp.name,
+            x: Math.round(x), y: skyY, z,
+            width:  Math.round(worldW * scale),
+            height: Math.round(worldH * scale),
+          });
+        }
+      }
+    } else if (placement === 'landmark') {
       // Single instance, far away — for unique props like a lighthouse
       const z = Z_FAR[farIdx % Z_FAR.length];
       farIdx++;
@@ -246,35 +268,7 @@ function assembleScene(theme, timeOfDay, palette = []) {
     beach:    { nearColor:'#c8b870', farColor:'#a09050', texture: { color:'rgba(200,180,120,0.15)', seed:55, scale:0.7 } },
     generic:  { nearColor:'#1e2a18', farColor:'#181e14', texture: { color:'rgba(60,90,40,0.2)', seed:63 } },
   };
-  const RIDGES = {
-    mountain: [
-      { baseY:0.82, amplitude:0.30, color:'#6080a0', snowColor:'rgba(255,255,255,0.85)', snowLine:0.35, parallaxFactor:0.04, seed:11 },
-      { baseY:0.92, amplitude:0.20, color:'#405060', parallaxFactor:0.10, seed:22 },
-      { baseY:1.00, amplitude:0.12, color:'#304050', parallaxFactor:0.16, seed:33 },
-    ],
-    city: [
-      { baseY:0.88, amplitude:0.07, color:'#0c0e1a', parallaxFactor:0.02, seed:91 },
-      { baseY:0.94, amplitude:0.04, color:'#090c16', parallaxFactor:0.06, seed:82 },
-      { baseY:1.00, amplitude:0.02, color:'#070910', parallaxFactor:0.12, seed:73 },
-    ],
-    desert: [
-      { baseY:0.90, amplitude:0.12, color:'#8a6040', parallaxFactor:0.04, seed:41 },
-      { baseY:0.96, amplitude:0.07, color:'#705030', parallaxFactor:0.09, seed:55 },
-      { baseY:1.02, amplitude:0.04, color:'#584028', parallaxFactor:0.15, seed:67 },
-    ],
-    beach: [
-      { baseY:0.92, amplitude:0.04, color:'#5a7090', parallaxFactor:0.03, seed:11 },
-      { baseY:0.96, amplitude:0.03, color:'#4a6070', parallaxFactor:0.07, seed:44 },
-      { baseY:1.00, amplitude:0.02, color:'#3a5060', parallaxFactor:0.12, seed:77 },
-    ],
-    generic: [
-      { baseY:0.87, amplitude:0.24, color:'#7090b0', snowColor:'rgba(255,255,255,0.85)', snowLine:0.38, parallaxFactor:0.05, seed:11 },
-      { baseY:0.945,amplitude:0.18, color:'#507060', parallaxFactor:0.10, seed:77 },
-      { baseY:1.005,amplitude:0.10, color:'#3a5848', parallaxFactor:0.16, seed:88 },
-    ],
-  };
-
-  const CLOUDS = {
+const CLOUDS = {
     dawn:     { color:'rgba(255,200,150,0.5)', speed:0.02, density:0.35, seed:17, top:0.05, bottom:0.5 },
     noon:     { color:'rgba(255,255,255,0.6)', speed:0.02, density:0.4,  seed:7,  top:0.02, bottom:0.55 },
     dusk:     { color:'rgba(255,160,100,0.5)', speed:0.02, density:0.45, seed:23, top:0.05, bottom:0.55 },
@@ -286,7 +280,6 @@ function assembleScene(theme, timeOfDay, palette = []) {
   const fogColor  = FOG[timeOfDay]  ?? FOG.noon;
   const clouds    = CLOUDS[timeOfDay] ?? CLOUDS.noon;
   const ground    = GROUND[theme]   ?? GROUND.generic;
-  const ridges    = RIDGES[theme]   ?? RIDGES.generic;
 
   const sky = { gradient: skyColors.map((color, i) => ({ stop: i / (skyColors.length - 1), color })) };
   if (clouds) sky.clouds = clouds;
@@ -294,7 +287,6 @@ function assembleScene(theme, timeOfDay, palette = []) {
   return {
     sky,
     fog:      { enabled: false, density: 0.88, color: fogColor },
-    backdrop: { ridges },
     ground,
   };
 }

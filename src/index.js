@@ -3,5 +3,5 @@
 // ============================================================
 
 export { ScapeEngine }                          from './ScapeEngine.js';
-export { Sky, Backdrop, Stage }                 from './layers/index.js';
+export { Sky, Stage }                           from './layers/index.js';
 export { loadScape }                            from './loader.js';

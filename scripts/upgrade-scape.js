@@ -267,7 +267,7 @@ async function assembleSheet(outDir, definition) {
     }
 
     const pngBuf = await sharp(svgPath)
-      .resize({ height: CELL_H, fit: 'inside' })
+      .resize({ width: CELL_H, height: CELL_H, fit: 'inside' })
       .png()
       .toBuffer();
 
@@ -328,9 +328,17 @@ async function assembleSheet(outDir, definition) {
 // ── Shared: build the upgrade prompt ────────────────────────
 
 function buildPrompt(brief, layout, sheetW, sheetH) {
-  const { style = 'flat illustration' } = brief;
+  const { style = 'flat illustration', mood = '', upgradeStyle } = brief;
 
-  return `Convert this sprite sheet to ${style} style`;
+  // Allow brief to override the full upgrade prompt
+  if (upgradeStyle) return upgradeStyle;
+
+  return [
+    `Redraw every sprite on this sheet in ${style} style.`,
+    mood ? `Mood and atmosphere: ${mood}.` : '',
+    `Each sprite must keep the same position, bounding box, and transparent (green) background as the original — only the art style changes.`,
+    `Preserve the exact grid layout. Output at the same resolution.`,
+  ].filter(Boolean).join('\n');
 }
 
 // ── Shared: build sky panorama prompt ────────────────────────

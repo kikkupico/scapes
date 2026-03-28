@@ -3,9 +3,8 @@
 // ============================================================
 
 import { ScapeEngine } from './ScapeEngine.js';
-import { Sky }         from './layers/Sky.js';
-import { Backdrop }    from './layers/Backdrop.js';
-import { Stage }       from './layers/Stage.js';
+import { Sky }   from './layers/Sky.js';
+import { Stage } from './layers/Stage.js';
 
 /** Load a single image from any src (URL, data URI, blob URL). */
 function loadImageSrc(src) {
@@ -107,10 +106,6 @@ export async function loadScape(canvas, definition, options = {}) {
     engine.sky = new Sky(stops, definition.sky.clouds ?? null, panorama);
   }
 
-  // 4. Backdrop
-  if (definition.backdrop) {
-    engine.backdrop = new Backdrop(definition.backdrop.ridges ?? []);
-  }
 
   // 5. Stage
   if (definition.ground) {
